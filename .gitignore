@@ -210,5 +210,7 @@ __marimo__/
 *.csv
 *.xlsx
 *.parquet
+*.nc
+*.CSV
 dados.zip
 *.zip

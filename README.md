@@ -90,4 +90,32 @@ Com backend em execução:
 ```bash
 curl http://localhost:5000/api/health
 ```
+
+## Docker
+
+### Subir a aplicação com Docker Compose
+
+Na raiz do projeto:
+
+```bash
+docker compose up --build -d
+```
+
+Serviços expostos:
+
+- Frontend: `http://localhost:8080`
+- Backend: `http://localhost:5000`
+- Healthcheck backend: `http://localhost:5000/api/health`
+
+### Parar os containers
+
+```bash
+docker compose down
+```
+
+### Observações
+
+- O frontend é buildado e servido por Nginx.
+- O path `/api/*` no frontend é encaminhado internamente para o backend no Docker.
+- Se quiser alterar origem permitida no CORS, ajuste `FRONTEND_URL` no `docker-compose.yml`.
   

@@ -10,5 +10,20 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
-  }
+  },
+  "description": "Projeto com frontend em React + Vite + TypeScript e backend em Node.js + Express.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vincentbc23/Desafio-3_Zetta.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vincentbc23/Desafio-3_Zetta/issues"
+  },
+  "homepage": "https://github.com/vincentbc23/Desafio-3_Zetta#readme"
 }

@@ -1,26 +1,51 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router';
-import { MapPin, Camera, AlertTriangle, Navigation } from 'lucide-react';
+import { MapPin, AlertTriangle, Navigation } from 'lucide-react';
 import { Header } from '../components/Header';
 import { BotaoPrincipal } from '../components/BotaoPrincipal';
+import { api } from '../api/client';
+
+interface IngestionFeatures {
+  DiaSemChuva: number;
+  Precipitacao: number;
+  Temperatura_C: number;
+  'Umidade_Relativa_%': number;
+  Vento_ms: number;
+  Mes: number;
+  Hora: number;
+  Latitude: number;
+  Longitude: number;
+}
+
+interface IngestionResponse {
+  reportId: string;
+  features: IngestionFeatures;
+  ml: {
+    status: string;
+    message: string;
+  };
+}
 
 export default function Reportar() {
   const navigate = useNavigate();
-  const [localizacao, setLocalizacao] = useState('Rua Exemplo, 123 - Centro');
-  const [descricao, setDescricao] = useState('');
-  const [intensidade, setIntensidade] = useState<'baixa' | 'media' | 'alta'>('media');
+  const [localizacao, setLocalizacao] = useState('Localização ainda não capturada');
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [features, setFeatures] = useState<IngestionFeatures | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
 
   const handleGPS = () => {
     setGpsLoading(true);
+    setErrorMessage('');
     
     // Obter localização real do dispositivo
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
+          setCoords({ latitude, longitude });
           
           try {
             // Usar Nominatim (OpenStreetMap) para geocoding reverso
@@ -86,6 +111,7 @@ export default function Reportar() {
           }
           
           setLocalizacao(errorMessage);
+          setErrorMessage(errorMessage);
           setGpsLoading(false);
         },
         {
@@ -96,18 +122,40 @@ export default function Reportar() {
       );
     } else {
       setLocalizacao('Geolocalização não suportada pelo navegador');
+      setErrorMessage('Geolocalização não suportada pelo navegador');
       setGpsLoading(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!coords) {
+      setErrorMessage('Capture sua localização via GPS antes de enviar.');
+      return;
+    }
+
     setIsLoading(true);
-    
-    // Simular envio
-    setTimeout(() => {
-      navigate('/sucesso');
-    }, 2000);
+    setErrorMessage('');
+
+    try {
+      const payload = {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      };
+
+      const response = await api.post<IngestionResponse>('/api/reports/ingest', payload);
+      setFeatures(response.features);
+
+      setTimeout(() => {
+        navigate('/sucesso');
+      }, 1200);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao enviar dados para ingestão.';
+      setErrorMessage(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -166,7 +214,7 @@ export default function Reportar() {
               <input 
                 type="text"
                 value={localizacao}
-                onChange={(e) => setLocalizacao(e.target.value)}
+                readOnly
                 className="flex-1 bg-[#0A1929] text-[#F2F2F7] px-4 py-3 rounded-lg border border-white/20 focus:outline-none focus:border-[#FF3B30] focus:shadow-[0_0_15px_rgba(255,59,48,0.3)] transition-all"
               />
               <motion.button
@@ -191,74 +239,29 @@ export default function Reportar() {
               </motion.button>
             </div>
           </div>
-          
-          <div>
-            <label className="block text-[#F2F2F7] mb-2 font-semibold">Descrição</label>
-            <textarea 
-              value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
-              rows={4}
-              placeholder="Descreva o que você está vendo..."
-              className="w-full bg-[#0A1929] text-[#F2F2F7] px-4 py-3 rounded-lg border border-white/20 focus:outline-none focus:border-[#FF3B30] focus:shadow-[0_0_15px_rgba(255,59,48,0.3)] placeholder-gray-500 transition-all"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-[#F2F2F7] mb-3 font-semibold">Intensidade</label>
-            <div className="flex gap-4">
-              <motion.button
-                type="button"
-                onClick={() => setIntensidade('baixa')}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
-                  intensidade === 'baixa' 
-                    ? 'bg-[#34C759] text-white shadow-[0_4px_15px_rgba(52,199,89,0.4)]' 
-                    : 'bg-[#0A1929] text-gray-400 border border-white/20 hover:bg-[#1C1C1E]'
-                }`}
-              >
-                Baixa
-              </motion.button>
-              <motion.button
-                type="button"
-                onClick={() => setIntensidade('media')}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
-                  intensidade === 'media' 
-                    ? 'bg-[#FF9500] text-white shadow-[0_4px_15px_rgba(255,149,0,0.4)]' 
-                    : 'bg-[#0A1929] text-gray-400 border border-white/20 hover:bg-[#1C1C1E]'
-                }`}
-              >
-                Média
-              </motion.button>
-              <motion.button
-                type="button"
-                onClick={() => setIntensidade('alta')}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
-                  intensidade === 'alta' 
-                    ? 'bg-[#FF3B30] text-white shadow-[0_4px_15px_rgba(255,59,48,0.4)]' 
-                    : 'bg-[#0A1929] text-gray-400 border border-white/20 hover:bg-[#1C1C1E]'
-                }`}
-              >
-                Alta
-              </motion.button>
+
+          {features && (
+            <div className="bg-[#0A1929]/60 border border-white/10 rounded-lg p-5">
+              <p className="text-[#F2F2F7] font-semibold mb-3">Atributos coletados para o modelo</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                <p className="text-gray-300">DiaSemChuva: <span className="text-[#F2F2F7]">{features.DiaSemChuva}</span></p>
+                <p className="text-gray-300">Precipitacao: <span className="text-[#F2F2F7]">{features.Precipitacao}</span></p>
+                <p className="text-gray-300">Temperatura_C: <span className="text-[#F2F2F7]">{features.Temperatura_C}</span></p>
+                <p className="text-gray-300">Umidade_Relativa_%: <span className="text-[#F2F2F7]">{features['Umidade_Relativa_%']}</span></p>
+                <p className="text-gray-300">Vento_ms: <span className="text-[#F2F2F7]">{features.Vento_ms}</span></p>
+                <p className="text-gray-300">Mes: <span className="text-[#F2F2F7]">{features.Mes}</span></p>
+                <p className="text-gray-300">Hora: <span className="text-[#F2F2F7]">{features.Hora}</span></p>
+                <p className="text-gray-300">Latitude: <span className="text-[#F2F2F7]">{features.Latitude}</span></p>
+                <p className="text-gray-300">Longitude: <span className="text-[#F2F2F7]">{features.Longitude}</span></p>
+              </div>
             </div>
-          </div>
-          
-          {/* Upload de imagem */}
-          <div>
-            <label className="block text-[#F2F2F7] mb-3 font-semibold">Enviar Imagem</label>
-            <motion.div 
-              whileHover={{ borderColor: 'rgba(255, 59, 48, 0.5)' }}
-              className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center transition-all cursor-pointer hover:bg-[#0A1929]/50"
-            >
-              <Camera className="w-12 h-12 text-gray-500 mx-auto mb-3" />
-              <p className="text-gray-400">Clique para adicionar uma foto</p>
-            </motion.div>
-          </div>
+          )}
+
+          {errorMessage && (
+            <div className="bg-[#FF3B30]/15 border border-[#FF3B30]/40 rounded-lg p-3 text-[#F2F2F7] text-sm">
+              {errorMessage}
+            </div>
+          )}
           
           {/* Aviso */}
           <motion.div 
@@ -277,7 +280,7 @@ export default function Reportar() {
           </motion.div>
           
           <BotaoPrincipal fullWidth isLoading={isLoading}>
-            🚨 ENVIAR ALERTA
+            ENVIAR PARA INGESTAO AUTOMATICA
           </BotaoPrincipal>
         </motion.form>
       </div>

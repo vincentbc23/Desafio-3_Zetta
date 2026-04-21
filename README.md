@@ -82,6 +82,7 @@ npm run dev:backend
 
 - `docs/FRONTEND_BACKEND_SETUP.md`
 - `docs/API_EXAMPLES.md`
+- `docs/INGESTAO_CLIMA_ML_READY.md`
 
 ## Healthcheck backend
 
@@ -89,6 +90,35 @@ Com backend em execução:
 
 ```bash
 curl http://localhost:5000/api/health
+```
+
+## Ingestão automática para modelo (clima + GPS)
+
+- A tela de reporte agora envia apenas latitude/longitude.
+- O backend coleta clima atual + histórico e monta os atributos do modelo.
+- `DiaSemChuva` e calculado com janela de 15 dias.
+- Os dados são persistidos no PostgreSQL.
+- A integração com API de ML (PKL) ficou preparada, mas ainda desativada.
+
+Endpoint principal:
+
+```bash
+POST http://localhost:5000/api/reports/ingest
+```
+
+Payload exemplo:
+
+```json
+{
+	"latitude": -16.3578,
+	"longitude": -46.9064
+}
+```
+
+Status de prontidão para ML:
+
+```bash
+GET http://localhost:5000/api/ml/status
 ```
 
 ## Docker
@@ -105,6 +135,7 @@ Serviços expostos:
 
 - Frontend: `http://localhost:8080`
 - Backend: `http://localhost:5000`
+- PostgreSQL: `localhost:5432`
 - Healthcheck backend: `http://localhost:5000/api/health`
 
 ### Parar os containers

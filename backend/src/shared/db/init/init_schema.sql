@@ -40,4 +40,4 @@ CREATE TABLE IF NOT EXISTS predictions (
 CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_weather_features_report_id ON weather_features(report_id);
 CREATE INDEX IF NOT EXISTS idx_predictions_report_id_created_at ON predictions(report_id, created_at DESC);
-
+  

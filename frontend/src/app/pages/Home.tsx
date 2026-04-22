@@ -1,25 +1,61 @@
 import { motion } from 'motion/react';
-import { Flame, MapPin, Bell } from 'lucide-react';
+import { Flame, MapPin, Bell, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { Header } from '../components/Header';
 import { CardInformacao } from '../components/CardInformacao';
 import { BotaoPrincipal } from '../components/BotaoPrincipal';
 import { useState } from 'react';
 import { Notificacao } from '../components/Notificacao';
+import { useApi } from '../api/useApi';
+import { apiConfig } from '../api/config';
+
+interface CardItem {
+  id: string;
+  titulo: string;
+  valor: number | string;
+  icon: string;
+}
+
+interface CardsResponse {
+  totals: {
+    totalReports: number;
+    reportsLast24h: number;
+    highRiskReports: number;
+  };
+  cards: CardItem[];
+  updatedAt: string;
+}
+
+const iconMap = {
+  flame: Flame,
+  'map-pin': MapPin,
+  'alert-triangle': AlertTriangle,
+};
 
 export default function Home() {
   const navigate = useNavigate();
   const [notificacaoVisivel, setNotificacaoVisivel] = useState(true);
+  const { data, error, refetch, refreshing } = useApi<CardsResponse>('/api/cards', [], apiConfig.refreshIntervalMs);
+
+  const cards = data?.cards ?? [
+    { id: 'incendios_hoje', titulo: 'Incêndios hoje', valor: 0, icon: 'flame' },
+    { id: 'reports_total', titulo: 'Total de reportes', valor: 0, icon: 'map-pin' },
+  ];
+
+  const highRiskCount = data?.totals.highRiskReports ?? 0;
 
   return (
     <div className="min-h-screen bg-[#0A1929]">
       <Header />
       
-      {/* Notificação simulada */}
       <Notificacao
-        tipo="alerta"
-        titulo="Incêndio próximo detectado"
-        mensagem="Área: 2.3 km da sua localização"
+        tipo={highRiskCount > 0 ? 'alerta' : 'sucesso'}
+        titulo={highRiskCount > 0 ? 'Alertas de risco alto detectados' : 'Monitoramento ativo'}
+        mensagem={
+          highRiskCount > 0
+            ? `${highRiskCount} ocorrência(s) em risco alto nas últimas coletas.`
+            : 'Nenhuma ocorrência em risco alto no momento.'
+        }
         visivel={notificacaoVisivel}
         onFechar={() => setNotificacaoVisivel(false)}
       />
@@ -45,19 +81,42 @@ export default function Home() {
         
         {/* Conteúdo */}
         <div className="relative z-10 max-w-7xl mx-auto px-8 py-12 h-full flex flex-col justify-between">
-          {/* Cards superiores */}
-          <div className="grid grid-cols-2 gap-6 max-w-2xl">
-            <CardInformacao 
-              icon={Flame}
-              titulo="Incêndios hoje"
-              valor="27"
-            />
-            <CardInformacao 
-              icon={MapPin}
-              titulo="Área queimada"
-              valor="1.243 ha"
-            />
+          <div className="flex justify-end items-center gap-3">
+            {data?.updatedAt && (
+              <span className="text-xs text-gray-300">
+                Atualizado: {new Date(data.updatedAt).toLocaleTimeString('pt-BR')}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="bg-[#1C1C1E]/80 border border-white/20 text-[#F2F2F7] px-3 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-[#2A2A2C] transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Atualizar agora
+            </button>
           </div>
+
+          <div className="grid grid-cols-2 gap-6 max-w-2xl">
+            {cards.slice(0, 2).map((card) => {
+              const Icon = iconMap[card.icon as keyof typeof iconMap] || Flame;
+
+              return (
+                <CardInformacao
+                  key={card.id}
+                  icon={Icon}
+                  titulo={card.titulo}
+                  valor={card.valor}
+                />
+              );
+            })}
+          </div>
+
+          {error && (
+            <div className="max-w-2xl bg-[#FF3B30]/15 border border-[#FF3B30]/40 rounded-lg p-3 text-[#F2F2F7] text-sm">
+              Não foi possível atualizar os cards em tempo real.
+            </div>
+          )}
           
           {/* Texto e Botão central */}
           <div className="flex flex-col items-center justify-center gap-8">

@@ -23,7 +23,12 @@ interface IngestionResponse {
   features: IngestionFeatures;
   ml: {
     status: string;
-    message: string;
+    source: string;
+    modelName: string;
+    modelVersion: string;
+    probIncendio: number;
+    classePrevista: string;
+    frpPrevisto: number;
   };
 }
 
@@ -35,6 +40,13 @@ export default function Reportar() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
+
+  const riscoAlto =
+    !!features &&
+    (features.DiaSemChuva >= 10 ||
+      features.Temperatura_C >= 32 ||
+      features['Umidade_Relativa_%'] <= 35 ||
+      features.Vento_ms >= 8);
 
   const handleGPS = () => {
     setGpsLoading(true);
@@ -144,11 +156,11 @@ export default function Reportar() {
         longitude: coords.longitude,
       };
 
-      const response = await api.post<IngestionResponse>('/api/reports/ingest', payload);
+      const response = await api.post<IngestionResponse>('/api/reportar', payload);
       setFeatures(response.features);
 
       setTimeout(() => {
-        navigate('/sucesso');
+        navigate('/sucesso', { state: response });
       }, 1200);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Falha ao enviar dados para ingestão.';
@@ -272,9 +284,19 @@ export default function Reportar() {
           >
             <AlertTriangle className="w-6 h-6 text-[#FF9500] flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-[#FF9500] font-semibold">Risco alto de propagação</p>
+              <p className="text-[#FF9500] font-semibold">
+                {features
+                  ? riscoAlto
+                    ? 'Risco elevado de propagação'
+                    : 'Risco moderado no momento'
+                  : 'Aguardando dados climáticos para classificar o risco'}
+              </p>
               <p className="text-[#FF9500]/80 text-sm mt-1">
-                Condições climáticas favoráveis à propagação rápida do fogo. Mantenha-se em local seguro.
+                {features
+                  ? riscoAlto
+                    ? 'Condições atuais indicam maior chance de propagação. Priorize áreas seguras e reporte qualquer mudança.'
+                    : 'Condições atuais mais estáveis, mas siga monitorando e mantenha distância da área afetada.'
+                  : 'Após enviar o reporte, o sistema usa clima e localização para calcular o nível de atenção.'}
               </p>
             </div>
           </motion.div>

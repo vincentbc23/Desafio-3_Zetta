@@ -1,11 +1,57 @@
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router';
-import { CheckCircle, Home, Shield } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router';
+import { CheckCircle, Home, Shield, MapPin, Thermometer, Droplets, Wind, Flame, BadgeInfo } from 'lucide-react';
 import { BotaoPrincipal } from '../components/BotaoPrincipal';
 import { useEffect } from 'react';
 
+interface IngestionFeatures {
+  DiaSemChuva: number;
+  Precipitacao: number;
+  Temperatura_C: number;
+  'Umidade_Relativa_%': number;
+  Vento_ms: number;
+  Mes: number;
+  Hora: number;
+  Latitude: number;
+  Longitude: number;
+}
+
+interface SuccessState {
+  reportId: string;
+  features: IngestionFeatures;
+  ml: {
+    status: string;
+    source: string;
+    modelName: string;
+    modelVersion: string;
+    probIncendio: number;
+    classePrevista: string;
+    frpPrevisto: number;
+  };
+}
+
 export default function Sucesso() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const successData = location.state as SuccessState | null;
+
+  const statusCards = successData
+    ? [
+        {
+          texto: `Reporte ${successData.reportId.slice(0, 8)} salvo no banco de dados`,
+        },
+        {
+          texto: `Predição ${successData.ml.classePrevista} processada (${(successData.ml.probIncendio * 100).toFixed(1)}%)`,
+        },
+        {
+          texto: `Dados já disponíveis no painel e no mapa em tempo real`,
+        },
+      ]
+    : [
+        { texto: 'Reporte registrado com sucesso' },
+        { texto: 'Processamento concluído no backend' },
+        { texto: 'Painel atualizado para acompanhamento' },
+      ];
 
   useEffect(() => {
     // Animação de confetti ou celebração poderia ser adicionada aqui
@@ -59,44 +105,67 @@ export default function Sucesso() {
           <p className="text-[#F2F2F7] text-lg mb-4">
             Seu reporte foi recebido com sucesso!
           </p>
+
+          {successData ? (
+            <div className="space-y-4 text-left">
+              <div className="grid grid-cols-1 gap-3 bg-[#0A1929]/60 border border-white/10 rounded-lg p-4">
+                <div className="flex items-center gap-3 text-[#F2F2F7]">
+                  <BadgeInfo className="w-5 h-5 text-[#FF9500]" />
+                  <span className="text-sm break-all">Reporte: {successData.reportId}</span>
+                </div>
+                <div className="flex items-center gap-3 text-[#F2F2F7]">
+                  <MapPin className="w-5 h-5 text-[#FF3B30]" />
+                  <span className="text-sm">Lat {successData.features.Latitude.toFixed(6)} | Lng {successData.features.Longitude.toFixed(6)}</span>
+                </div>
+                <div className="flex items-center gap-3 text-[#F2F2F7]">
+                  <Flame className="w-5 h-5 text-[#FF9500]" />
+                  <span className="text-sm">Predição: {successData.ml.classePrevista} ({(successData.ml.probIncendio * 100).toFixed(1)}%)</span>
+                </div>
+                <div className="flex items-center gap-3 text-[#F2F2F7]">
+                  <Shield className="w-5 h-5 text-[#34C759]" />
+                  <span className="text-sm">Modelo: {successData.ml.modelName} v{successData.ml.modelVersion} via {successData.ml.source}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center gap-2 bg-[#0A1929]/60 border border-white/10 rounded-lg p-3 text-[#F2F2F7]">
+                  <Thermometer className="w-4 h-4 text-[#FF3B30]" />
+                  <span>{successData.features.Temperatura_C.toFixed(1)}°C</span>
+                </div>
+                <div className="flex items-center gap-2 bg-[#0A1929]/60 border border-white/10 rounded-lg p-3 text-[#F2F2F7]">
+                  <Droplets className="w-4 h-4 text-[#34C759]" />
+                  <span>{successData.features['Umidade_Relativa_%'].toFixed(1)}%</span>
+                </div>
+                <div className="flex items-center gap-2 bg-[#0A1929]/60 border border-white/10 rounded-lg p-3 text-[#F2F2F7]">
+                  <Wind className="w-4 h-4 text-[#00C7FF]" />
+                  <span>{successData.features.Vento_ms.toFixed(1)} m/s</span>
+                </div>
+                <div className="flex items-center gap-2 bg-[#0A1929]/60 border border-white/10 rounded-lg p-3 text-[#F2F2F7]">
+                  <Flame className="w-4 h-4 text-[#FF9500]" />
+                  <span>{successData.features.DiaSemChuva} dias sem chuva</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-[#F2F2F7]/80 text-base">
+              Seu reporte foi registrado. Volte à tela inicial para acompanhar o painel atualizado.
+            </p>
+          )}
           
           {/* Cards de status */}
           <div className="space-y-3">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 }}
-              className="flex items-center gap-3 bg-[#34C759]/10 border border-[#34C759]/30 rounded-lg p-3"
-            >
-              <Shield className="w-5 h-5 text-[#34C759]" />
-              <p className="text-sm text-[#F2F2F7] text-left">
-                Autoridades notificadas
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.6 }}
-              className="flex items-center gap-3 bg-[#34C759]/10 border border-[#34C759]/30 rounded-lg p-3"
-            >
-              <Shield className="w-5 h-5 text-[#34C759]" />
-              <p className="text-sm text-[#F2F2F7] text-left">
-                Equipes de emergência mobilizadas
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.7 }}
-              className="flex items-center gap-3 bg-[#34C759]/10 border border-[#34C759]/30 rounded-lg p-3"
-            >
-              <Shield className="w-5 h-5 text-[#34C759]" />
-              <p className="text-sm text-[#F2F2F7] text-left">
-                Comunidade local alertada
-              </p>
-            </motion.div>
+            {statusCards.map((item, index) => (
+              <motion.div
+                key={item.texto}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 + index * 0.1 }}
+                className="flex items-center gap-3 bg-[#34C759]/10 border border-[#34C759]/30 rounded-lg p-3"
+              >
+                <Shield className="w-5 h-5 text-[#34C759]" />
+                <p className="text-sm text-[#F2F2F7] text-left">{item.texto}</p>
+              </motion.div>
+            ))}
           </div>
         </motion.div>
 

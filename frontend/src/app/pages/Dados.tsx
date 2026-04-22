@@ -1,41 +1,57 @@
 import { motion } from 'motion/react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Header } from '../components/Header';
-import { Clock, MapPin, TrendingUp } from 'lucide-react';
+import { Clock, MapPin, TrendingUp, RefreshCw } from 'lucide-react';
+import { useApi } from '../api/useApi';
+import { apiConfig } from '../api/config';
 
-const dadosRegiao = [
-  { nome: 'Norte', incendios: 45, id: 'norte' },
-  { nome: 'Sul', incendios: 23, id: 'sul' },
-  { nome: 'Leste', incendios: 67, id: 'leste' },
-  { nome: 'Oeste', incendios: 34, id: 'oeste' },
-  { nome: 'Centro', incendios: 51, id: 'centro' }
-];
+interface DadosResponse {
+  resumo: {
+    totalIncendios: number;
+    incendiosUltimas24h: number;
+  };
+  porRegiao: Array<{
+    nome: string;
+    incendios: number;
+  }>;
+  porHorario: Array<{
+    hora: string;
+    ocorrencias: number;
+  }>;
+  porClasse: Array<{
+    nome: string;
+    valor: number;
+  }>;
+  updatedAt: string;
+}
 
-const dadosHorario = [
-  { hora: '00h', ocorrencias: 5, id: 'h00' },
-  { hora: '04h', ocorrencias: 3, id: 'h04' },
-  { hora: '08h', ocorrencias: 8, id: 'h08' },
-  { hora: '12h', ocorrencias: 15, id: 'h12' },
-  { hora: '16h', ocorrencias: 23, id: 'h16' },
-  { hora: '20h', ocorrencias: 12, id: 'h20' }
-];
+const corClasse = (classe: string) => {
+  const normalized = classe.toLowerCase();
 
-const dadosTipo = [
-  { nome: 'Florestal', valor: 45, cor: '#FF3B30', id: 'tipo-florestal' },
-  { nome: 'Urbano', valor: 20, cor: '#FF9500', id: 'tipo-urbano' },
-  { nome: 'Rural', valor: 25, cor: '#FFCC00', id: 'tipo-rural' },
-  { nome: 'Industrial', valor: 10, cor: '#34C759', id: 'tipo-industrial' }
-];
+  if (normalized === 'alto') {
+    return '#FF3B30';
+  }
+
+  if (normalized === 'medio') {
+    return '#FF9500';
+  }
+
+  if (normalized === 'baixo') {
+    return '#FFCC00';
+  }
+
+  return '#34C759';
+};
 
 // Componente customizado para tooltip
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: string | number }>; label?: string }) => {
+  if (active && payload?.length) {
     return (
       <div className="bg-[#1C1C1E] border border-white/20 rounded-lg p-3 shadow-xl backdrop-blur-md">
         <p className="text-[#F2F2F7] font-semibold mb-1">{label}</p>
-        {payload.map((entry: any, index: number) => (
+        {payload.map((entry, index: number) => (
           <p key={`tooltip-${index}`} className="text-[#F2F2F7]">
-            {entry.name}: <span className="font-bold text-[#FF3B30]">{entry.value}</span>
+            {entry.name}: <span className="font-bold text-[#FF3B30]">{entry.value ?? 0}</span>
           </p>
         ))}
       </div>
@@ -45,18 +61,62 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function Dados() {
+  const { data, error, refetch, refreshing } = useApi<DadosResponse>('/api/dados', [], apiConfig.refreshIntervalMs);
+
+  const totalIncendios = data?.resumo.totalIncendios ?? 0;
+  const incendiosUltimas24h = data?.resumo.incendiosUltimas24h ?? 0;
+  const alto = data?.porClasse.find((item) => item.nome.toLowerCase() === 'alto')?.valor ?? 0;
+  const taxaControle = totalIncendios > 0 ? Math.max(0, Math.round(((totalIncendios - alto) / totalIncendios) * 100)) : 0;
+
+  const dadosRegiao = (data?.porRegiao ?? []).map((item) => ({
+    nome: item.nome,
+    incendios: item.incendios,
+    id: `regiao-${item.nome.toLowerCase()}`,
+  }));
+
+  const dadosHorario = (data?.porHorario ?? []).map((item) => ({
+    hora: item.hora,
+    ocorrencias: item.ocorrencias,
+    id: `hora-${item.hora}`,
+  }));
+
+  const dadosTipo = (data?.porClasse ?? []).map((item) => ({
+    nome: item.nome,
+    valor: item.valor,
+    cor: corClasse(item.nome),
+    id: `classe-${item.nome}`,
+  }));
+
   return (
     <div className="min-h-screen bg-[#0A1929]">
       <Header />
       
       <div className="max-w-7xl mx-auto px-8 py-12">
-        <motion.h1
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-4xl font-bold text-[#F2F2F7] mb-8"
-        >
-          Dados e Estatísticas
-        </motion.h1>
+        <div className="flex items-center justify-between mb-8 gap-4">
+          <motion.h1
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-4xl font-bold text-[#F2F2F7]"
+          >
+            Dados e Estatísticas
+          </motion.h1>
+
+          <div className="flex items-center gap-3">
+            {data?.updatedAt && (
+              <span className="text-xs text-gray-300">
+                Atualizado: {new Date(data.updatedAt).toLocaleTimeString('pt-BR')}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="bg-[#1C1C1E]/80 border border-white/20 text-[#F2F2F7] px-3 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-[#2A2A2C] transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Atualizar agora
+            </button>
+          </div>
+        </div>
         
         {/* Cards de métricas */}
         <div className="grid grid-cols-3 gap-6 mb-12">
@@ -76,7 +136,7 @@ export default function Dados() {
               transition={{ delay: 0.3, type: "spring" }}
               className="text-4xl font-bold text-[#F2F2F7]"
             >
-              220
+              {totalIncendios}
             </motion.p>
             <p className="text-gray-400 text-sm mt-2">Este mês</p>
           </motion.div>
@@ -97,9 +157,9 @@ export default function Dados() {
               transition={{ delay: 0.4, type: "spring" }}
               className="text-4xl font-bold text-[#F2F2F7]"
             >
-              23 min
+              {incendiosUltimas24h}
             </motion.p>
-            <p className="text-gray-400 text-sm mt-2">Tempo de resposta</p>
+            <p className="text-gray-400 text-sm mt-2">Ocorrências nas últimas 24h</p>
           </motion.div>
           
           <motion.div
@@ -118,11 +178,17 @@ export default function Dados() {
               transition={{ delay: 0.5, type: "spring" }}
               className="text-4xl font-bold text-[#F2F2F7]"
             >
-              87%
+              {taxaControle}%
             </motion.p>
-            <p className="text-gray-400 text-sm mt-2">Incêndios controlados</p>
+            <p className="text-gray-400 text-sm mt-2">Sem classificação de risco alto</p>
           </motion.div>
         </div>
+
+        {error && (
+          <div className="mb-8 bg-[#FF3B30]/15 border border-[#FF3B30]/40 rounded-lg p-3 text-[#F2F2F7] text-sm">
+            Não foi possível atualizar os gráficos em tempo real.
+          </div>
+        )}
         
         {/* Gráficos */}
         <div className="grid grid-cols-2 gap-8 mb-8">
@@ -169,7 +235,7 @@ export default function Dados() {
                   cx="50%"
                   cy="50%"
                   outerRadius={100}
-                  label={(entry) => `${entry.nome}: ${entry.valor}%`}
+                  label={(entry) => `${entry.nome}: ${entry.valor}`}
                   labelStyle={{ fill: '#F2F2F7', fontSize: '12px', fontWeight: 600 }}
                 >
                   {dadosTipo.map((entry) => (
@@ -219,7 +285,7 @@ export default function Dados() {
             </LineChart>
           </ResponsiveContainer>
           <p className="text-gray-400 text-sm mt-4 text-center">
-            ⏱️ Pico de ocorrências entre 14h-18h
+            📡 Dados atualizados automaticamente pelo backend
           </p>
         </motion.div>
       </div>

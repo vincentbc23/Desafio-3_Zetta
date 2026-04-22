@@ -1,54 +1,7 @@
 import { env } from '../config/env.js';
 
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-
-const computeLocalPrediction = (features) => {
-  const dryDaysRisk = clamp(Number(features.DiaSemChuva || 0) / 15, 0, 1);
-  const tempRisk = clamp((Number(features.Temperatura_C || 0) - 20) / 20, 0, 1);
-  const windRisk = clamp(Number(features.Vento_ms || 0) / 20, 0, 1);
-  const humidityProtection = clamp(Number(features.Umidade_Relativa_pct || 0) / 100, 0, 1);
-  const rainProtection = clamp(Number(features.Precipitacao || 0) / 15, 0, 1);
-
-  const probabilityRaw =
-    dryDaysRisk * 0.35 +
-    tempRisk * 0.25 +
-    windRisk * 0.2 +
-    (1 - humidityProtection) * 0.15 +
-    (1 - rainProtection) * 0.05;
-
-  const probIncendio = clamp(Number(probabilityRaw.toFixed(4)), 0, 1);
-  const classePrevista = probIncendio >= 0.7 ? 'alto' : probIncendio >= 0.4 ? 'medio' : 'baixo';
-  const frpPrevisto = Number((probIncendio * 120).toFixed(2));
-
-  return {
-    modelName: 'local-risk-heuristic',
-    modelVersion: '1.0.0',
-    probIncendio,
-    classePrevista,
-    frpPrevisto,
-    source: 'local',
-  };
-};
-
-const mapApiPrediction = (payload) => {
-  const probIncendio = Number(payload?.prob_incendio);
-  const classePrevista = payload?.classe_prevista;
-  const frpPrevisto = Number(payload?.frp_previsto);
-
-  if (!Number.isFinite(probIncendio) || !classePrevista || !Number.isFinite(frpPrevisto)) {
-    throw new Error('ML API returned an invalid prediction payload');
-  }
-
-  return {
-    modelName: payload?.model_name || 'external-ml-api',
-    modelVersion: payload?.model_version || 'unknown',
-    probIncendio,
-    classePrevista: String(classePrevista),
-    frpPrevisto,
-    source: 'api',
-  };
-};
-
+// 1. Prepara as variáveis para enviar. 
+// AVISO: Os nomes dessas chaves DEVEM ser idênticos às colunas que o modelo espera no features_fogo.pkl
 const getFeaturePayload = (features) => ({
   DiaSemChuva: Number(features.DiaSemChuva),
   Precipitacao: Number(features.Precipitacao),
@@ -61,12 +14,34 @@ const getFeaturePayload = (features) => ({
   Longitude: Number(features.Longitude),
 });
 
-export const predictFireRisk = async (features) => {
-  const payload = getFeaturePayload(features);
+// 2. Mapeia a resposta da API Python para o formato que o Backend Node espera
+const mapApiPrediction = (payload) => {
+  // Pega os valores aceitando tanto o padrão antigo quanto o da nova API FastAPI
+  const probIncendio = Number(payload?.prob_incendio || 0); // Se o modelo não tiver .predict_proba, pode ser 0
+  const classePrevista = payload?.classe_prevista || payload?.classificacao_fogo;
+  const frpPrevisto = Number(payload?.frp_previsto || payload?.intensidade_frp);
 
-  if (!env.mlEnabled) {
-    return computeLocalPrediction(payload);
+  if (classePrevista === undefined || !Number.isFinite(frpPrevisto)) {
+    throw new Error('A API de ML retornou um payload de predição inválido ou incompleto.');
   }
+
+  return {
+    // Se você implementou a Estratégia 2, ele pega o nome do modelo direto da API
+    modelName: payload?.debug_info?.modelo_classificador || 'api-cerrado-ml',
+    modelVersion: '1.0.0',
+    probIncendio,
+    classePrevista: String(classePrevista),
+    frpPrevisto,
+    source: 'api',
+  };
+};
+
+export const predictFireRisk = async (features) => {
+  if (!env.mlEnabled) {
+    throw new Error('A API de ML está desabilitada no .env (ML_ENABLED=false).');
+  }
+
+  const payload = getFeaturePayload(features);
 
   try {
     const response = await fetch(`${env.mlApiUrl}/predict`, {
@@ -74,25 +49,31 @@ export const predictFireRisk = async (features) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      // Envia no formato {"dados": { ... }} conforme o BaseModel do FastAPI
+      body: JSON.stringify({ dados: payload }), 
     });
 
     if (!response.ok) {
-      throw new Error(`ML API request failed with status ${response.status}`);
+      // Captura o erro da API (ex: 422 Unprocessable Entity se faltar alguma variável)
+      const errorText = await response.text();
+      throw new Error(`Falha na API de ML (Status ${response.status}): ${errorText}`);
     }
 
     const result = await response.json();
     return mapApiPrediction(result);
-  } catch (_error) {
-    return computeLocalPrediction(payload);
+    
+  } catch (error) {
+    console.error('[ML Service] Erro de comunicação com a API de ML:', error.message);
+    // Lança o erro para cima. Seu controller deve ter um try/catch para retornar 500 ao usuário
+    throw error; 
   }
 };
 
 export const getMlStatus = () => ({
   enabled: env.mlEnabled,
   endpoint: env.mlApiUrl,
-  strategy: env.mlEnabled ? 'external-with-local-fallback' : 'local-fallback-only',
+  strategy: env.mlEnabled ? 'external-api-only' : 'disabled',
   message: env.mlEnabled
-    ? 'ML API habilitada com fallback local em caso de falha.'
-    : 'ML API desabilitada. Predicao local em uso para manter o pipeline funcional.',
+    ? 'ML API habilitada e operando como fonte exclusiva de predições.'
+    : 'ML API desabilitada. As predições não estão disponíveis.',
 });

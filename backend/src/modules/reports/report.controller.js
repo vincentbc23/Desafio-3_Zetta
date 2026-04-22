@@ -142,8 +142,14 @@ export const ingestReport = async (req, res, next) => {
       },
     });
   } catch (error) {
+    // Adicione esta linha para o log aparecer no terminal do Docker!
+    console.error('[Erro Crítico no Reporte]:', error); 
+    
     return next(error);
   }
 };
+  
 
+    
 export const reportar = ingestReport;
+

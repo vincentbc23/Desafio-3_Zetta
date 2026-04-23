@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS reports (
 CREATE TABLE IF NOT EXISTS weather_features (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   report_id UUID NOT NULL UNIQUE REFERENCES reports(id) ON DELETE CASCADE,
+  description TEXT,
   dia_sem_chuva SMALLINT NOT NULL CHECK (dia_sem_chuva BETWEEN 0 AND 15),
   precipitacao DOUBLE PRECISION NOT NULL,
   temperatura_c DOUBLE PRECISION NOT NULL,

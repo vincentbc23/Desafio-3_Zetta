@@ -94,6 +94,7 @@ export const ingestReport = async (req, res, next) => {
         `
           INSERT INTO weather_features (
             report_id,
+            description,
             dia_sem_chuva,
             precipitacao,
             temperatura_c,
@@ -105,10 +106,11 @@ export const ingestReport = async (req, res, next) => {
             longitude,
             weather_provider,
             weather_collected_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         `,
         [
           insertedReport.id,
+          description,
           features.DiaSemChuva,
           features.Precipitacao,
           features.Temperatura_C,

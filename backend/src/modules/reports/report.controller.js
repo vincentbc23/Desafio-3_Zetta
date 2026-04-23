@@ -1,5 +1,6 @@
-import { query } from '../../shared/db/client.js';
+import { withTransaction } from '../../shared/db/client.js';
 import { collectWeatherFeatures } from '../../shared/services/weather.service.js';
+import { predictFireRisk } from '../../shared/services/ml.service.js';
 
 const validateCoordinates = (latitude, longitude) => {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
@@ -17,26 +18,17 @@ const validateCoordinates = (latitude, longitude) => {
   return null;
 };
 
-const createPendingPredictionRow = async (reportId, features) => {
-  await query(
-    `
-      INSERT INTO predictions (
-        report_id,
-        model_name,
-        model_version,
-        payload_used,
-        source
-      ) VALUES ($1, $2, $3, $4::jsonb, $5)
-    `,
-    [
-      reportId,
-      'pending_ml_api',
-      'not-deployed',
-      JSON.stringify(features),
-      'pending',
-    ]
-  );
-};
+const normalizeFeatures = (features) => ({
+  DiaSemChuva: features.DiaSemChuva,
+  Precipitacao: features.Precipitacao,
+  Temperatura_C: features.Temperatura_C,
+  Umidade_Relativa_pct: features['Umidade_Relativa_%'],
+  Vento_ms: features.Vento_ms,
+  Mes: features.Mes,
+  Hora: features.Hora,
+  Latitude: features.Latitude,
+  Longitude: features.Longitude,
+});
 
 export const ingestReport = async (req, res, next) => {
   try {
@@ -49,61 +41,80 @@ export const ingestReport = async (req, res, next) => {
     }
 
     const features = await collectWeatherFeatures(latitude, longitude);
+    const modelFeatures = normalizeFeatures(features);
+    const prediction = await predictFireRisk(modelFeatures);
 
-    const reportResult = await query(
-      `
-        INSERT INTO reports (latitude, longitude)
-        VALUES ($1, $2)
-        RETURNING id, created_at
-      `,
-      [latitude, longitude]
-    );
+    const report = await withTransaction(async (client) => {
+      const reportResult = await client.query(
+        `
+          INSERT INTO reports (latitude, longitude)
+          VALUES ($1, $2)
+          RETURNING id, created_at
+        `,
+        [latitude, longitude]
+      );
 
-    const report = reportResult.rows[0];
+      const insertedReport = reportResult.rows[0];
 
-    await query(
-      `
-        INSERT INTO weather_features (
-          report_id,
-          dia_sem_chuva,
-          precipitacao,
-          temperatura_c,
-          umidade_relativa_pct,
-          vento_ms,
-          mes,
-          hora,
-          latitude,
-          longitude,
-          weather_provider,
-          weather_collected_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      `,
-      [
-        report.id,
-        features.DiaSemChuva,
-        features.Precipitacao,
-        features.Temperatura_C,
-        features['Umidade_Relativa_%'],
-        features.Vento_ms,
-        features.Mes,
-        features.Hora,
-        features.Latitude,
-        features.Longitude,
-        features.weatherProvider,
-        features.weatherCollectedAt,
-      ]
-    );
+      await client.query(
+        `
+          INSERT INTO weather_features (
+            report_id,
+            dia_sem_chuva,
+            precipitacao,
+            temperatura_c,
+            umidade_relativa_pct,
+            vento_ms,
+            mes,
+            hora,
+            latitude,
+            longitude,
+            weather_provider,
+            weather_collected_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        `,
+        [
+          insertedReport.id,
+          features.DiaSemChuva,
+          features.Precipitacao,
+          features.Temperatura_C,
+          features['Umidade_Relativa_%'],
+          features.Vento_ms,
+          features.Mes,
+          features.Hora,
+          features.Latitude,
+          features.Longitude,
+          features.weatherProvider,
+          features.weatherCollectedAt,
+        ]
+      );
 
-    await createPendingPredictionRow(report.id, {
-      DiaSemChuva: features.DiaSemChuva,
-      Precipitacao: features.Precipitacao,
-      Temperatura_C: features.Temperatura_C,
-      Umidade_Relativa_pct: features['Umidade_Relativa_%'],
-      Vento_ms: features.Vento_ms,
-      Mes: features.Mes,
-      Hora: features.Hora,
-      Latitude: features.Latitude,
-      Longitude: features.Longitude,
+      await client.query(
+        `
+          INSERT INTO predictions (
+            report_id,
+            model_name,
+            model_version,
+            prob_incendio,
+            classe_prevista,
+            frp_previsto,
+            payload_used,
+            source
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+        `,
+        [
+          insertedReport.id,
+          prediction.modelName,
+          prediction.modelVersion,
+          prediction.probIncendio,
+          prediction.classePrevista,
+          prediction.frpPrevisto,
+          JSON.stringify(modelFeatures),
+          prediction.source,
+        ]
+      );
+
+      return insertedReport;
     });
 
     return res.status(201).json({
@@ -121,11 +132,24 @@ export const ingestReport = async (req, res, next) => {
         Longitude: features.Longitude,
       },
       ml: {
-        status: 'pending',
-        message: 'ML API ainda nao implantada. Dados salvos e prontos para inferencia futura.',
+        status: 'processed',
+        source: prediction.source,
+        modelName: prediction.modelName,
+        modelVersion: prediction.modelVersion,
+        probIncendio: prediction.probIncendio,
+        classePrevista: prediction.classePrevista,
+        frpPrevisto: prediction.frpPrevisto,
       },
     });
   } catch (error) {
+    // Adicione esta linha para o log aparecer no terminal do Docker!
+    console.error('[Erro Crítico no Reporte]:', error); 
+    
     return next(error);
   }
 };
+  
+
+    
+export const reportar = ingestReport;
+

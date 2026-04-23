@@ -83,6 +83,7 @@ npm run dev:backend
 - `docs/FRONTEND_BACKEND_SETUP.md`
 - `docs/API_EXAMPLES.md`
 - `docs/INGESTAO_CLIMA_ML_READY.md`
+- `docs/QA_CHECKLIST.md`
 
 ## Healthcheck backend
 
@@ -98,9 +99,15 @@ curl http://localhost:5000/api/health
 - O backend coleta clima atual + histórico e monta os atributos do modelo.
 - `DiaSemChuva` e calculado com janela de 15 dias.
 - Os dados são persistidos no PostgreSQL.
-- A integração com API de ML (PKL) ficou preparada, mas ainda desativada.
+- A predição já retorna no backend via estratégia ativa (API externa quando habilitada + fallback local).
 
 Endpoint principal:
+
+```bash
+POST http://localhost:5000/api/reportar
+```
+
+Compatibilidade mantida:
 
 ```bash
 POST http://localhost:5000/api/reports/ingest
@@ -119,6 +126,15 @@ Status de prontidão para ML:
 
 ```bash
 GET http://localhost:5000/api/ml/status
+```
+
+## Refresh automático no frontend
+
+- O polling das páginas principais (`Home`, `Dados`, `Mapa`) é configurável por ambiente.
+- Defina no `frontend/.env.local`:
+
+```env
+VITE_API_REFRESH_MS=30000
 ```
 
 ## Docker

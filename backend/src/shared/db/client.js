@@ -8,3 +8,19 @@ export const dbPool = new Pool({
 });
 
 export const query = (text, params = []) => dbPool.query(text, params);
+
+export const withTransaction = async (callback) => {
+  const client = await dbPool.connect();
+
+  try {
+    await client.query('BEGIN');
+    const result = await callback(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};

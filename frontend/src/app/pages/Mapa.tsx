@@ -1,19 +1,43 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Flame, Calendar, MapPin, Wind, Thermometer, Droplets, Layers } from 'lucide-react';
+import { Flame, Calendar, MapPin, Wind, Thermometer, Droplets, Layers, RefreshCw } from 'lucide-react';
 import { Header } from '../components/Header';
+import { useApi } from '../api/useApi';
+import { apiConfig } from '../api/config';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 interface IncendioMarcador {
-  id: number;
+  id: string;
   lat: number;
   lng: number;
   risco: 'alto' | 'medio' | 'controlado';
-  confirmacoes: number;
-  alertasFalsos: number;
+  probIncendio: number;
+  frpPrevisto: number;
+  createdAt: string;
+  ventoMs: number;
+  temperaturaC: number;
+  umidadePct: number;
   localizacao: string;
 }
+
+interface DadosMapaResponse {
+  ultimosReportes: Array<{
+    id: string;
+    latitude: number;
+    longitude: number;
+    created_at: string;
+    temperatura_c: number | null;
+    umidade_relativa_pct: number | null;
+    vento_ms: number | null;
+    prob_incendio: number | null;
+    classe_prevista: string | null;
+    frp_previsto: number | null;
+  }>;
+  updatedAt: string;
+}
+
+type MapStyleKey = 'streets' | 'satellite' | 'terrain' | 'dark';
 
 // Função para criar ícones customizados animados
 const createCustomIcon = (risco: 'alto' | 'medio' | 'controlado') => {
@@ -76,35 +100,72 @@ const createCustomIcon = (risco: 'alto' | 'medio' | 'controlado') => {
 export default function Mapa() {
   const [dataFiltro, setDataFiltro] = useState('');
   const [regiaoFiltro, setRegiaoFiltro] = useState('');
-  const [mapStyle, setMapStyle] = useState('streets');
+  const [mapStyle, setMapStyle] = useState<MapStyleKey>('streets');
   const [isStyleOpen, setIsStyleOpen] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const { data, error, refetch, refreshing } = useApi<DadosMapaResponse>('/api/dados', [], apiConfig.refreshIntervalMs);
   
   // Coordenadas centrais do Brasil (Brasília)
   const centerPosition: [number, number] = [-15.7939, -47.8828];
-  
-  // Dados meteorológicos
-  const dadosMeteo = {
-    vento: 15,
-    temperatura: 32,
-    umidade: 28
+
+  const getRegiao = (lat: number, lng: number) => {
+    if (Math.abs(lat) <= 2 && Math.abs(lng) <= 2) {
+      return 'centro';
+    }
+
+    if (lat >= 0 && lng >= 0) {
+      return 'norte';
+    }
+
+    if (lat < 0 && lng >= 0) {
+      return 'leste';
+    }
+
+    if (lat < 0 && lng < 0) {
+      return 'sul';
+    }
+
+    return 'oeste';
   };
-  
-  // Marcadores de exemplo com coordenadas reais do Brasil
-  const marcadores: IncendioMarcador[] = [
-    { id: 1, lat: -15.7939, lng: -47.8828, risco: 'alto', confirmacoes: 12, alertasFalsos: 1, localizacao: 'Brasília - DF' },
-    { id: 2, lat: -23.5505, lng: -46.6333, risco: 'medio', confirmacoes: 5, alertasFalsos: 0, localizacao: 'São Paulo - SP' },
-    { id: 3, lat: -22.9068, lng: -43.1729, risco: 'controlado', confirmacoes: 3, alertasFalsos: 0, localizacao: 'Rio de Janeiro - RJ' },
-    { id: 4, lat: -3.7172, lng: -38.5433, risco: 'alto', confirmacoes: 8, alertasFalsos: 2, localizacao: 'Fortaleza - CE' },
-    { id: 5, lat: -12.9714, lng: -38.5014, risco: 'medio', confirmacoes: 6, alertasFalsos: 1, localizacao: 'Salvador - BA' },
-    { id: 6, lat: -16.3578, lng: -46.9064, risco: 'alto', confirmacoes: 15, alertasFalsos: 0, localizacao: 'Unaí - MG (Noroeste)' },
-    { id: 7, lat: -17.2219, lng: -46.8750, risco: 'medio', confirmacoes: 9, alertasFalsos: 1, localizacao: 'Paracatu - MG (Noroeste)' },
-    { id: 8, lat: -18.5789, lng: -46.5181, risco: 'alto', confirmacoes: 11, alertasFalsos: 0, localizacao: 'Patos de Minas - MG (Noroeste)' },
-  ];
+
+  const marcadores: IncendioMarcador[] = (data?.ultimosReportes ?? [])
+    .map((reporte) => {
+      const prob = Number(reporte.prob_incendio ?? 0);
+      const classe = (reporte.classe_prevista || '').toLowerCase();
+      const risco: IncendioMarcador['risco'] =
+        classe === 'alto' || prob >= 0.7 ? 'alto' : classe === 'medio' || prob >= 0.4 ? 'medio' : 'controlado';
+
+      return {
+        id: reporte.id,
+        lat: Number(reporte.latitude),
+        lng: Number(reporte.longitude),
+        risco,
+        probIncendio: Number(reporte.prob_incendio ?? 0),
+        frpPrevisto: Number(reporte.frp_previsto ?? 0),
+        createdAt: reporte.created_at,
+        ventoMs: Number(reporte.vento_ms ?? 0),
+        temperaturaC: Number(reporte.temperatura_c ?? 0),
+        umidadePct: Number(reporte.umidade_relativa_pct ?? 0),
+        localizacao: `${Number(reporte.latitude).toFixed(4)}, ${Number(reporte.longitude).toFixed(4)}`,
+      };
+    })
+    .filter((item) => {
+      const matchesData = !dataFiltro || item.createdAt.startsWith(dataFiltro);
+      const matchesRegiao = !regiaoFiltro || getRegiao(item.lat, item.lng) === regiaoFiltro;
+      return matchesData && matchesRegiao;
+    });
+
+  const marcadorReferencia = marcadores[0];
+
+  const dadosMeteo = {
+    vento: marcadorReferencia ? Number(marcadorReferencia.ventoMs.toFixed(1)) : 0,
+    temperatura: marcadorReferencia ? Number(marcadorReferencia.temperaturaC.toFixed(1)) : 0,
+    umidade: marcadorReferencia ? Number(marcadorReferencia.umidadePct.toFixed(1)) : 0,
+  };
 
   // URLs dos diferentes estilos de mapa
-  const mapStyles: { [key: string]: { url: string; attribution: string } } = {
+  const mapStyles: Record<MapStyleKey, { url: string; attribution: string }> = {
     streets: {
       url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -127,11 +188,15 @@ export default function Mapa() {
     if (!mapContainerRef.current) return;
     
     // Criar o mapa
-    const map = L.map(mapContainerRef.current).setView(centerPosition, 5);
+    const initialCenter: [number, number] = marcadores.length
+      ? [marcadores[0].lat, marcadores[0].lng]
+      : centerPosition;
+
+    const map = L.map(mapContainerRef.current).setView(initialCenter, marcadores.length ? 7 : 5);
     mapRef.current = map;
     
     // Adicionar camada de tiles
-    const tileLayer = L.tileLayer(mapStyles[mapStyle].url, {
+    L.tileLayer(mapStyles[mapStyle].url, {
       attribution: mapStyles[mapStyle].attribution,
       maxZoom: 19
     }).addTo(map);
@@ -145,13 +210,14 @@ export default function Mapa() {
       // Popup customizado
       const popupContent = `
         <div style="text-align: center; padding: 8px; min-width: 200px;">
-          <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">Incêndio #${marcador.id}</h3>
+          <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">Reporte ${marcador.id.slice(0, 8)}</h3>
           <p style="font-size: 12px; color: #666; margin-bottom: 8px;">${marcador.localizacao}</p>
           <div style="display: flex; gap: 8px; font-size: 12px; margin-bottom: 8px; justify-content: center;">
-            <span style="color: #34C759;">👍 ${marcador.confirmacoes}</span>
+            <span style="color: #34C759;">Prob: ${(marcador.probIncendio * 100).toFixed(1)}%</span>
             <span>|</span>
-            <span style="color: #FF3B30;">👎 ${marcador.alertasFalsos}</span>
+            <span style="color: #FF3B30;">FRP: ${marcador.frpPrevisto.toFixed(2)}</span>
           </div>
+          <p style="font-size: 11px; color: #666; margin-bottom: 8px;">${new Date(marcador.createdAt).toLocaleString('pt-BR')}</p>
           <span style="display: inline-block; padding: 4px 12px; border-radius: 16px; font-size: 11px; font-weight: 600; ${
             marcador.risco === 'alto' ? 'background: #ffebee; color: #c62828;' :
             marcador.risco === 'medio' ? 'background: #fff3e0; color: #ef6c00;' :
@@ -166,18 +232,39 @@ export default function Mapa() {
       
       marker.bindPopup(popupContent);
     });
+
+    if (marcadores.length) {
+      const bounds = L.latLngBounds(marcadores.map((marcador) => [marcador.lat, marcador.lng] as [number, number]));
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 8 });
+    }
     
     // Cleanup
     return () => {
       map.remove();
     };
-  }, [mapStyle]);
+  }, [mapStyle, dataFiltro, regiaoFiltro, data?.ultimosReportes]);
 
   return (
     <div className="min-h-screen bg-[#0A1929]">
       <Header />
       
       <div className="max-w-7xl mx-auto px-8 py-8">
+        <div className="flex items-center justify-end gap-3 mb-4">
+          {data?.updatedAt && (
+            <span className="text-xs text-gray-300">
+              Atualizado: {new Date(data.updatedAt).toLocaleTimeString('pt-BR')}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="bg-[#1C1C1E]/80 border border-white/20 text-[#F2F2F7] px-3 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-[#2A2A2C] transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Atualizar agora
+          </button>
+        </div>
+
         {/* Filtros */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
@@ -217,6 +304,12 @@ export default function Mapa() {
             </div>
           </div>
         </motion.div>
+
+        {error && (
+          <div className="mb-6 bg-[#FF3B30]/15 border border-[#FF3B30]/40 rounded-lg p-3 text-[#F2F2F7] text-sm">
+            Não foi possível carregar os dados reais do mapa. Verifique a conexão com a API.
+          </div>
+        )}
         
         {/* Mapa Interativo */}
         <motion.div 

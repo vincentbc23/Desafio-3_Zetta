@@ -15,13 +15,55 @@ Use em `frontend/.env.local`:
 ```env
 VITE_API_URL=http://localhost:5000
 VITE_ENV=development
+VITE_API_REFRESH_MS=30000
 ```
+
+- `VITE_API_REFRESH_MS` controla o polling automático das telas (`Home`, `Dados`, `Mapa`).
+- O polling pausa quando a aba está em background e retoma ao voltar para foco.
 
 ## Uso rápido
 
 - GET: `api.get('/api/cards')`
-- POST: `api.post('/api/reports', payload)`
-- Hook: `useApi('/api/cards')`
+- GET: `api.get('/api/dados')`
+- POST: `api.post('/api/reportar', payload)`
+- Hook com refresh: `useApi('/api/cards', [], 30000)`
+
+Exemplo de payload para `POST /api/reportar`:
+
+```json
+{
+	"latitude": -16.3578,
+	"longitude": -46.9064
+}
+```
+
+Exemplo de resposta resumida:
+
+```json
+{
+	"reportId": "uuid",
+	"features": {
+		"DiaSemChuva": 4,
+		"Precipitacao": 0.59,
+		"Temperatura_C": 33.79,
+		"Umidade_Relativa_%": 43.68,
+		"Vento_ms": 4.31,
+		"Mes": 4,
+		"Hora": 14,
+		"Latitude": -15.793889,
+		"Longitude": -47.882778
+	},
+	"ml": {
+		"status": "processed",
+		"source": "local",
+		"modelName": "local-risk-heuristic",
+		"modelVersion": "1.0.0",
+		"probIncendio": 0.4413,
+		"classePrevista": "medio",
+		"frpPrevisto": 52.96
+	}
+}
+```
 
 ## Quando iniciar o backend
 
@@ -70,3 +112,15 @@ Ou diretamente na pasta `backend/`:
 ```bash
 npm run dev
 ```
+
+### Rotas principais já disponíveis
+
+- `GET /api/health`
+- `POST /api/reportar`
+- `GET /api/cards`
+- `GET /api/dados`
+- `GET /api/ml/status`
+
+Compatibilidade:
+
+- `POST /api/reports/ingest` continua ativo e usa o mesmo fluxo de `POST /api/reportar`.

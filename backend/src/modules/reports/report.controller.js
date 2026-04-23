@@ -18,6 +18,36 @@ const validateCoordinates = (latitude, longitude) => {
   return null;
 };
 
+const normalizeLocationSource = (value) => {
+  const source = String(value || 'gps').toLowerCase();
+
+  if (['gps', 'manual', 'confirmed'].includes(source)) {
+    return source;
+  }
+
+  return 'gps';
+};
+
+const normalizeAccuracy = (value) => {
+  if (value == null || value === '') {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+};
+
+const normalizeDescription = (value) => {
+  if (value == null) {
+    return null;
+  }
+
+  const description = String(value).trim();
+
+  return description.length > 0 ? description.slice(0, 1200) : null;
+};
+
 const normalizeFeatures = (features) => ({
   DiaSemChuva: features.DiaSemChuva,
   Precipitacao: features.Precipitacao,
@@ -34,6 +64,10 @@ export const ingestReport = async (req, res, next) => {
   try {
     const latitude = Number(req.body?.latitude);
     const longitude = Number(req.body?.longitude);
+    const description = normalizeDescription(req.body?.description ?? req.body?.descricao);
+    const accuracyMeters = normalizeAccuracy(req.body?.accuracyMeters ?? req.body?.accuracy_meters);
+    const locationSource = normalizeLocationSource(req.body?.locationSource ?? req.body?.location_source);
+    const locationConfirmed = Boolean(req.body?.locationConfirmed ?? req.body?.location_confirmed ?? false);
 
     const validationError = validateCoordinates(latitude, longitude);
     if (validationError) {
@@ -47,11 +81,11 @@ export const ingestReport = async (req, res, next) => {
     const report = await withTransaction(async (client) => {
       const reportResult = await client.query(
         `
-          INSERT INTO reports (latitude, longitude)
-          VALUES ($1, $2)
-          RETURNING id, created_at
+          INSERT INTO reports (latitude, longitude, description, accuracy_meters, location_source, location_confirmed)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING id, created_at, description, accuracy_meters, location_source, location_confirmed
         `,
-        [latitude, longitude]
+        [latitude, longitude, description, accuracyMeters, locationSource, locationConfirmed]
       );
 
       const insertedReport = reportResult.rows[0];
@@ -120,6 +154,14 @@ export const ingestReport = async (req, res, next) => {
     return res.status(201).json({
       reportId: report.id,
       createdAt: report.created_at,
+      location: {
+        latitude,
+        longitude,
+        description: report.description,
+        accuracyMeters: report.accuracy_meters,
+        source: report.location_source,
+        confirmed: report.location_confirmed,
+      },
       features: {
         DiaSemChuva: features.DiaSemChuva,
         Precipitacao: features.Precipitacao,

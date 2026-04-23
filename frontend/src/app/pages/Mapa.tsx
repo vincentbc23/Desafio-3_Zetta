@@ -11,6 +11,10 @@ interface IncendioMarcador {
   id: string;
   lat: number;
   lng: number;
+  description: string | null;
+  accuracyMeters: number | null;
+  locationSource: string;
+  locationConfirmed: boolean;
   risco: 'alto' | 'medio' | 'controlado';
   probIncendio: number;
   frpPrevisto: number;
@@ -26,6 +30,10 @@ interface DadosMapaResponse {
     id: string;
     latitude: number;
     longitude: number;
+    description: string | null;
+    accuracy_meters: number | null;
+    location_source: string | null;
+    location_confirmed: boolean | null;
     created_at: string;
     temperatura_c: number | null;
     umidade_relativa_pct: number | null;
@@ -140,6 +148,10 @@ export default function Mapa() {
         id: reporte.id,
         lat: Number(reporte.latitude),
         lng: Number(reporte.longitude),
+        description: reporte.description || null,
+        accuracyMeters: reporte.accuracy_meters == null ? null : Number(reporte.accuracy_meters),
+        locationSource: reporte.location_source || 'gps',
+        locationConfirmed: Boolean(reporte.location_confirmed),
         risco,
         probIncendio: Number(reporte.prob_incendio ?? 0),
         frpPrevisto: Number(reporte.frp_previsto ?? 0),
@@ -209,16 +221,22 @@ export default function Mapa() {
       
       // Popup customizado
       const popupContent = `
-        <div style="text-align: center; padding: 8px; min-width: 200px;">
-          <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">Reporte ${marcador.id.slice(0, 8)}</h3>
-          <p style="font-size: 12px; color: #666; margin-bottom: 8px;">${marcador.localizacao}</p>
-          <div style="display: flex; gap: 8px; font-size: 12px; margin-bottom: 8px; justify-content: center;">
-            <span style="color: #34C759;">Prob: ${(marcador.probIncendio * 100).toFixed(1)}%</span>
-            <span>|</span>
-            <span style="color: #FF3B30;">FRP: ${marcador.frpPrevisto.toFixed(2)}</span>
+        <div style="text-align: center; padding: 10px 6px; min-width: 220px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <h3 style="font-weight: 700; font-size: 16px; margin: 0; line-height: 1.2;">Reporte ${marcador.id.slice(0, 8)}</h3>
+          <p style="font-size: 12px; color: #666; margin: 0;">${marcador.localizacao}</p>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; justify-content: center; align-items: center;">
+            <span style="color: #34C759; font-weight: 600;">Prob: ${(marcador.probIncendio * 100).toFixed(1)}%</span>
+            <span style="color: #999;">•</span>
+            <span style="color: #FF3B30; font-weight: 600;">FRP: ${marcador.frpPrevisto.toFixed(2)}</span>
           </div>
-          <p style="font-size: 11px; color: #666; margin-bottom: 8px;">${new Date(marcador.createdAt).toLocaleString('pt-BR')}</p>
-          <span style="display: inline-block; padding: 4px 12px; border-radius: 16px; font-size: 11px; font-weight: 600; ${
+          <div style="display: flex; flex-direction: column; gap: 4px; align-items: center; font-size: 11px; color: #666;">
+            <span>${new Date(marcador.createdAt).toLocaleString('pt-BR')}</span>
+            <span>Origem: ${marcador.locationSource === 'manual' ? 'Manual' : 'GPS'}</span>
+            <span>${marcador.locationConfirmed ? 'Posição confirmada' : 'Posição não confirmada'}</span>
+            <span>${marcador.accuracyMeters != null ? `Precisão: ${Math.round(marcador.accuracyMeters)}m` : 'Precisão não informada'}</span>
+            ${marcador.description ? `<span style="max-width: 220px; text-wrap: pretty;">Descrição: ${marcador.description}</span>` : ''}
+          </div>
+          <span style="display: inline-block; padding: 4px 12px; border-radius: 16px; font-size: 11px; font-weight: 600; margin-top: 2px; ${
             marcador.risco === 'alto' ? 'background: #ffebee; color: #c62828;' :
             marcador.risco === 'medio' ? 'background: #fff3e0; color: #ef6c00;' :
             'background: #e8f5e9; color: #2e7d32;'

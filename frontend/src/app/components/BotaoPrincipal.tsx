@@ -5,16 +5,17 @@ interface BotaoPrincipalProps {
   onClick?: () => void;
   fullWidth?: boolean;
   isLoading?: boolean;
+  className?: string;
 }
 
-export function BotaoPrincipal({ children, onClick, fullWidth = false, isLoading = false }: BotaoPrincipalProps) {
+export function BotaoPrincipal({ children, onClick, fullWidth = false, isLoading = false, className = '' }: BotaoPrincipalProps) {
   return (
     <motion.button
       onClick={onClick}
       disabled={isLoading}
       whileHover={{ scale: 1.05, filter: 'brightness(1.2)' }}
       whileTap={{ scale: 0.95 }}
-      className={`relative bg-gradient-to-r from-[#FF3B30] to-[#FF6A00] text-white px-8 py-4 rounded-xl shadow-[0_8px_30px_rgba(255,59,48,0.4)] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed ${ fullWidth ? 'w-full' : '' } text-[20px]`}
+      className={`relative inline-flex items-center justify-center text-center bg-gradient-to-r from-[#FF3B30] to-[#FF6A00] text-white px-8 py-4 rounded-xl shadow-[0_8px_30px_rgba(255,59,48,0.4)] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed ${ fullWidth ? 'w-full' : '' } text-[20px] ${className}`}
     >
       {isLoading ? (
         <span className="flex items-center justify-center gap-2">

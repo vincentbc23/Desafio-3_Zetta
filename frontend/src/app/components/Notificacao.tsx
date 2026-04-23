@@ -27,7 +27,7 @@ export function Notificacao({ tipo, titulo, mensagem, visivel, onFechar }: Notif
           initial={{ opacity: 0, y: -50, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -50, scale: 0.9 }}
-          className="fixed top-24 right-8 z-50 max-w-md"
+          className="fixed top-24 left-1/2 -translate-x-1/2 z-50 w-[min(92vw,28rem)]"
         >
           <div 
             className={`p-4 rounded-xl shadow-2xl backdrop-blur-md border ${

@@ -62,7 +62,7 @@ export default function Home() {
       
       {/* Mapa de fundo */}
       <div 
-        className="relative h-[calc(100vh-80px)]"
+        className="relative min-h-[calc(100vh-80px)]"
         style={{
           backgroundImage: 'url(https://images.unsplash.com/photo-1743264038602-365292f9f6a8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb3Jlc3QlMjBmaXJlJTIwbWFwJTIwYWVyaWFsJTIwdmlld3xlbnwxfHx8fDE3NzUyMjgyMjl8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral)',
           backgroundSize: 'cover',
@@ -80,8 +80,8 @@ export default function Home() {
         />
         
         {/* Conteúdo */}
-        <div className="relative z-10 max-w-7xl mx-auto px-8 py-12 h-full flex flex-col justify-between">
-          <div className="flex justify-end items-center gap-3">
+        <div className="relative z-10 max-w-7xl mx-auto px-8 py-12 min-h-[calc(100vh-80px)] flex flex-col items-center justify-center gap-10">
+          <div className="w-full flex justify-end items-center gap-3">
             {data?.updatedAt && (
               <span className="text-xs text-gray-300">
                 Atualizado: {new Date(data.updatedAt).toLocaleTimeString('pt-BR')}
@@ -97,7 +97,7 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-6 max-w-2xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl justify-items-stretch">
             {cards.slice(0, 2).map((card) => {
               const Icon = iconMap[card.icon as keyof typeof iconMap] || Flame;
 
@@ -113,13 +113,13 @@ export default function Home() {
           </div>
 
           {error && (
-            <div className="max-w-2xl bg-[#FF3B30]/15 border border-[#FF3B30]/40 rounded-lg p-3 text-[#F2F2F7] text-sm">
+            <div className="w-full max-w-2xl bg-[#FF3B30]/15 border border-[#FF3B30]/40 rounded-lg p-3 text-[#F2F2F7] text-sm text-center">
               Não foi possível atualizar os cards em tempo real.
             </div>
           )}
           
           {/* Texto e Botão central */}
-          <div className="flex flex-col items-center justify-center gap-8">
+          <div className="flex flex-col items-center justify-center gap-8 w-full max-w-3xl text-center">
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -131,6 +131,7 @@ export default function Home() {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3 }}
+              className="w-full flex justify-center"
             >
               <BotaoPrincipal onClick={() => navigate('/reportar')} className="text-xl px-10 py-5 scale-110">
                 🔥 REPORTAR INCÊNDIO

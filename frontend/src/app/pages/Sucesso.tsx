@@ -19,6 +19,9 @@ interface IngestionFeatures {
 interface SuccessState {
   reportId: string;
   features: IngestionFeatures;
+  location?: {
+    description?: string | null;
+  };
   ml: {
     status: string;
     source: string;
@@ -117,6 +120,12 @@ export default function Sucesso() {
                   <MapPin className="w-5 h-5 text-[#FF3B30]" />
                   <span className="text-sm">Lat {successData.features.Latitude.toFixed(6)} | Lng {successData.features.Longitude.toFixed(6)}</span>
                 </div>
+                {successData.location?.description && (
+                  <div className="flex items-start gap-3 text-[#F2F2F7]">
+                    <BadgeInfo className="w-5 h-5 text-[#FF9500] mt-0.5" />
+                    <span className="text-sm text-left">Descrição: {successData.location.description}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-3 text-[#F2F2F7]">
                   <Flame className="w-5 h-5 text-[#FF9500]" />
                   <span className="text-sm">Predição: {successData.ml.classePrevista} ({(successData.ml.probIncendio * 100).toFixed(1)}%)</span>

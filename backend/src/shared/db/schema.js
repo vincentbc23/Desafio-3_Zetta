@@ -7,6 +7,10 @@ CREATE TABLE IF NOT EXISTS reports (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   latitude DOUBLE PRECISION NOT NULL,
   longitude DOUBLE PRECISION NOT NULL,
+  description TEXT,
+  accuracy_meters DOUBLE PRECISION,
+  location_source TEXT NOT NULL DEFAULT 'gps',
+  location_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -45,6 +49,15 @@ CREATE INDEX IF NOT EXISTS idx_weather_features_report_id ON weather_features(re
 CREATE INDEX IF NOT EXISTS idx_predictions_report_id_created_at ON predictions(report_id, created_at DESC);
 `;
 
+const migrationsSql = `
+ALTER TABLE reports
+  ADD COLUMN IF NOT EXISTS description TEXT,
+  ADD COLUMN IF NOT EXISTS accuracy_meters DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS location_source TEXT NOT NULL DEFAULT 'gps',
+  ADD COLUMN IF NOT EXISTS location_confirmed BOOLEAN NOT NULL DEFAULT FALSE;
+`;
+
 export const initializeDatabase = async () => {
   await query(schemaSql);
+  await query(migrationsSql);
 };

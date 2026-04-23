@@ -16,15 +16,13 @@ MODELS_DIR = os.path.join(BASE_DIR, "models")
 # 1. Carregando os modelos e as features
 try:
     classificador = joblib.load(os.path.join(MODELS_DIR, "classificador_fogo_cerrado.pkl"))
-    # Regressor utilizando possivelmente Random Forest ou XGBoost conforme sua modelagem
+    
     regressor = joblib.load(os.path.join(MODELS_DIR, "regressor_intensidade_frp.pkl"))
-    # O arquivo de features geralmente é uma lista com os nomes das colunas esperadas
+  
     colunas_esperadas = joblib.load(os.path.join(MODELS_DIR, "features_fogo.pkl")) 
 except Exception as e:
     print(f"Erro ao carregar os modelos: {e}")
 
-# Como não sabemos exatamente todas as colunas de cabeça, 
-# podemos aceitar um dicionário genérico e o Pandas resolve o mapeamento
 class IngestaoDados(BaseModel):
     dados: Dict[str, float]  # Ex: {"temperatura": 32.5, "umidade": 15.0, "lat": -15.0, ...}
 
@@ -35,7 +33,7 @@ def predict_fogo(payload: IngestaoDados):
         df_input = pd.DataFrame([payload.dados])
         
         # Garante que o DataFrame tem as colunas na exata ordem que o modelo espera
-        # Se faltar alguma coluna, o Pandas preenche com NaN (ou você pode tratar antes)
+        # Se faltar alguma coluna, o Pandas preenche com NaN 
         df_input = df_input.reindex(columns=colunas_esperadas, fill_value=0)
         
         # Executa as predições

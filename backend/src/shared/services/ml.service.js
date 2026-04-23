@@ -16,7 +16,7 @@ const getFeaturePayload = (features) => ({
 
 // 2. Mapeia a resposta da API Python para o formato que o Backend Node espera
 const mapApiPrediction = (payload) => {
-  // Pega os valores aceitando tanto o padrão antigo quanto o da nova API FastAPI
+  
   const probIncendio = Number(payload?.prob_incendio || 0); // Se o modelo não tiver .predict_proba, pode ser 0
   const classePrevista = payload?.classe_prevista || payload?.classificacao_fogo;
   const frpPrevisto = Number(payload?.frp_previsto || payload?.intensidade_frp);
@@ -26,7 +26,7 @@ const mapApiPrediction = (payload) => {
   }
 
   return {
-    // Se você implementou a Estratégia 2, ele pega o nome do modelo direto da API
+    
     modelName: payload?.debug_info?.modelo_classificador || 'api-cerrado-ml',
     modelVersion: '1.0.0',
     probIncendio,

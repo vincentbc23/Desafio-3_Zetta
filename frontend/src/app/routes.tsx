@@ -5,6 +5,8 @@ import Mapa from './pages/Mapa';
 import Dados from './pages/Dados';
 import Sucesso from './pages/Sucesso';
 import Educacao from './pages/Educacao';
+import Login from './pages/Login';
+import Painel from './pages/Painel';
 
 export const router = createBrowserRouter([
   {
@@ -26,6 +28,14 @@ export const router = createBrowserRouter([
   {
     path: '/educacao',
     Component: Educacao,
+  },
+  {
+    path: '/login',
+    Component: Login,
+  },
+  {
+    path: '/painel',
+    Component: Painel,
   },
   {
     path: '/sucesso',

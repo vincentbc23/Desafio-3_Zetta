@@ -5,6 +5,7 @@ Checklist manual para validar o fluxo completo com dados reais:
 - Reporte (`/reportar`)
 - Persistência no banco
 - Atualização de dashboards (`/`, `/dados`, `/mapa`)
+- Atualização da área privada de órgãos (`/painel`, `/orgaos`)
 - Exibição na tela de sucesso (`/sucesso`)
 
 ## 1) Pré-requisitos
@@ -67,6 +68,21 @@ Esperado em `/api/dados`:
 - `resumo.totalIncendios` incrementado
 - `ultimosReportes` com o novo `reportId`
 
+### 2.4 Login de bombeiro + endpoint privado
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:5000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"bombeiro@alertafogo.gov.br","senha":"Bombeiro@123"}' | jq -r '.token')
+
+curl -s http://localhost:5000/api/orgaos/analytics \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Esperado em `/api/orgaos/analytics`:
+- status HTTP `200` com `resumo`, `graficos` e `ultimosReportes`
+- sem token (ou token inválido) retorna `401`
+
 ## 3) Fluxo de UI ponta a ponta
 
 ### 3.1 Reportar
@@ -116,6 +132,17 @@ Esperado:
 - popup com `probIncendio`, `frpPrevisto` e horário
 - botão `Atualizar agora` funcional
 
+### 3.6 Área privada de órgãos
+
+1. Acesse `/login` com usuário bombeiro.
+2. Entre no `/painel` e clique em `Análise de Órgãos`.
+
+Esperado:
+- rota `/orgaos` carrega apenas com sessão válida
+- gráficos da análise aparecem com dados reais
+- tabela de últimos reportes mostra detalhes meteorológicos e predição
+- botão `Atualizar` recarrega sem perder sessão
+
 ## 4) Polling automático (30s por padrão)
 
 Configuração em `frontend/.env.local`:
@@ -147,6 +174,8 @@ Esperado:
 - [ ] `GET /api/health` retorna `200`.
 - [ ] `POST /api/reportar` retorna `201` com payload completo.
 - [ ] `GET /api/cards` e `GET /api/dados` refletem novos reportes.
+- [ ] `GET /api/orgaos/analytics` responde `200` com token válido e `401` sem token.
 - [ ] Tela `/sucesso` exibe dados reais do reporte.
 - [ ] Home/Dados/Mapa atualizam manualmente e por polling.
+- [ ] `/orgaos` só abre para sessão válida de bombeiro.
 - [ ] Sem erros no build do frontend (`npm --prefix frontend run build`).

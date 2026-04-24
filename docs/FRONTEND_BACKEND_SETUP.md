@@ -25,6 +25,7 @@ VITE_API_REFRESH_MS=30000
 
 - GET: `api.get('/api/cards')`
 - GET: `api.get('/api/dados')`
+- GET (privado): `/api/orgaos/analytics` com header `Authorization: Bearer <token>`
 - POST: `api.post('/api/reportar', payload)`
 - Hook com refresh: `useApi('/api/cards', [], 30000)`
 
@@ -119,7 +120,15 @@ npm run dev
 - `POST /api/reportar`
 - `GET /api/cards`
 - `GET /api/dados`
+- `GET /api/orgaos/analytics` (privado, role `bombeiro`)
 - `GET /api/ml/status`
+
+### Nova tela privada para órgãos
+
+- Rota frontend: `/orgaos`
+- Acesso: exige sessão ativa de bombeiro (`/api/auth/me`) e role `bombeiro`
+- Dados: endpoint protegido `GET /api/orgaos/analytics`
+- Navegação: botão `Análise de Órgãos` no painel `/painel`
 
 Compatibilidade:
 

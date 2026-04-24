@@ -7,6 +7,8 @@ import Sucesso from './pages/Sucesso';
 import Educacao from './pages/Educacao';
 import Login from './pages/Login';
 import Painel from './pages/Painel';
+import Orgaos from './pages/Orgaos';
+import { RequireFirefighterAccess } from './auth/RequireFirefighterAccess';
 
 export const router = createBrowserRouter([
   {
@@ -35,7 +37,19 @@ export const router = createBrowserRouter([
   },
   {
     path: '/painel',
-    Component: Painel,
+    element: (
+      <RequireFirefighterAccess>
+        <Painel />
+      </RequireFirefighterAccess>
+    ),
+  },
+  {
+    path: '/orgaos',
+    element: (
+      <RequireFirefighterAccess>
+        <Orgaos />
+      </RequireFirefighterAccess>
+    ),
   },
   {
     path: '/sucesso',

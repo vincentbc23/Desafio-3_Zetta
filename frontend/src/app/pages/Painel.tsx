@@ -15,9 +15,7 @@ import {
   TrendingUp,
   Activity
 } from 'lucide-react';
-
-const AUTH_TOKEN_KEY = 'alerta-fogo-auth-token';
-const AUTH_USER_KEY = 'alerta-fogo-auth-user';
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY, clearAuthSession, type FirefighterUser } from '../auth/session';
 
 const alertasPrioritarios = [
   {
@@ -109,13 +107,6 @@ const recursosDisponiveis = [
   { tipo: 'Aeronaves', total: 5, ativas: 1, disponiveis: 4 }
 ];
 
-interface FirefighterUser {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
-
 export default function Painel() {
   const navigate = useNavigate();
   const [filtroAlerta, setFiltroAlerta] = useState('TODOS');
@@ -182,8 +173,7 @@ export default function Painel() {
       }
     }
 
-    window.localStorage.removeItem(AUTH_TOKEN_KEY);
-    window.localStorage.removeItem(AUTH_USER_KEY);
+    clearAuthSession();
     navigate('/login', { replace: true });
   };
 
@@ -238,6 +228,13 @@ export default function Painel() {
               <Activity className="w-4 h-4 text-[#34C759]" />
               <span className="text-sm text-[#34C759] font-medium">Sistema Ativo</span>
             </motion.div>
+
+            <button
+              onClick={() => navigate('/orgaos')}
+              className="px-3 py-2 rounded-lg border border-white/20 text-sm text-[#F2F2F7] hover:bg-[#2A2A2C] transition-colors"
+            >
+              Análise de Órgãos
+            </button>
 
             <button
               onClick={handleLogout}

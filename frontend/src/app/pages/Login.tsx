@@ -4,9 +4,7 @@ import { useNavigate } from 'react-router';
 import { Shield, Lock, User, AlertCircle } from 'lucide-react';
 import { BotaoPrincipal } from '../components/BotaoPrincipal';
 import { api } from '../api/client';
-
-const AUTH_TOKEN_KEY = 'alerta-fogo-auth-token';
-const AUTH_USER_KEY = 'alerta-fogo-auth-user';
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '../auth/session';
 
 interface LoginResponse {
   token: string;

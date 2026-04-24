@@ -34,6 +34,8 @@ services:
       ML_ENABLED: "true"
     ports:
       - "5000:5000"
+    volumes:
+      - ./graficos:/app/graficos:ro
     restart: unless-stopped
 
   frontend:

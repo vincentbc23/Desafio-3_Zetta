@@ -1,71 +1,54 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ScatterChart,
-  Scatter,
-} from 'recharts';
 import { RefreshCw, Activity, AlertTriangle, Flame, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import Plotly from 'plotly.js-dist-min';
 import { AUTH_TOKEN_KEY, AUTH_USER_KEY, clearAuthSession, type FirefighterUser } from '../auth/session';
 
-interface AnalyticsResponse {
-  resumo: {
-    totalReports: number;
-    reportsLast24h: number;
-    highRiskReports: number;
-  };
-  graficos: {
-    cidadesMaisOcorrencias: Array<{ localidade: string; focos: number }>;
-    registrosHistoricosMes: Array<{ mes: number; mesLabel: string; quantidade: number }>;
-    registrosHistoricosAno: Array<{ ano: number; quantidade: number }>;
-    registrosHistoricosHora: Array<{ hora: string; ocorrencias: number }>;
-    variacaoFrpMes: Array<{ mes: number; mesLabel: string; media_frp: number }>;
-    frpHora: Array<{ hora: string; media_frp: number }>;
-    frpTemperatura: Array<{ temperatura: number; media_frp: number; amostras: number }>;
-    frpVento: Array<{ vento: number; media_frp: number; amostras: number }>;
-    boxplotRiscoMes: Array<{ mes: number; mesLabel: string; minimo: number; q1: number; mediana: number; q3: number; maximo: number }>;
-    porRegiao: Array<{ nome: string; ocorrencias: number }>;
-    porClasse: Array<{ nome: string; valor: number }>;
-  };
-  ultimosReportes: Array<{
-    id: string;
-    description: string | null;
-    created_at: string;
-    temperatura_c: number | null;
-    umidade_relativa_pct: number | null;
-    vento_ms: number | null;
-    prob_incendio: number | null;
-    classe_prevista: string | null;
-    frp_previsto: number | null;
-  }>;
-  updatedAt: string;
-}
-
-const classeColors: Record<string, string> = {
-  alto: '#FF3B30',
-  medio: '#FF9500',
-  baixo: '#FFCC00',
-  indefinido: '#34C759',
+type EncodedNumericArray = {
+  dtype?: string;
+  bdata?: string;
 };
 
-const formatNumber = (value: number) => new Intl.NumberFormat('pt-BR').format(value);
+type PlotlyTrace = {
+  name?: string;
+  y?: unknown;
+};
 
-const formatDecimal = (value: number, digits = 2) => new Intl.NumberFormat('pt-BR', {
-  minimumFractionDigits: digits,
-  maximumFractionDigits: digits,
-}).format(value);
+type PlotlyFigure = {
+  data?: PlotlyTrace[];
+  layout?: {
+    title?: string | { text?: string };
+    [key: string]: unknown;
+  };
+};
+
+type ChartDefinition = {
+  id: string;
+  filename: string;
+  fallbackTitle: string;
+};
+
+type LoadedChart = ChartDefinition & {
+  figure: PlotlyFigure;
+};
+
+const chartFiles: ChartDefinition[] = [
+  { id: 'cidades', filename: 'cidades_mais_ocorrencias.json', fallbackTitle: 'Top Localidades com Ocorrencias' },
+  { id: 'mes', filename: 'registros_historicos_mes.json', fallbackTitle: 'Registros Historicos por Mes' },
+  { id: 'ano', filename: 'registros_historicos_ano.json', fallbackTitle: 'Registros Historicos por Ano' },
+  { id: 'hora', filename: 'registros_historicos_hora.json', fallbackTitle: 'Registros por Hora' },
+  { id: 'variacao-frp', filename: 'variacao_frp_mes.json', fallbackTitle: 'Variacao de FRP por Mes' },
+  { id: 'frp-hora', filename: 'frp_hora.json', fallbackTitle: 'FRP por Hora' },
+  { id: 'frp-temp', filename: 'FRP_temperatura.json', fallbackTitle: 'FRP x Temperatura' },
+  { id: 'frp-vento', filename: 'frp_vento.json', fallbackTitle: 'FRP x Vento' },
+  { id: 'boxplot', filename: 'boxplot_risco_mes.json', fallbackTitle: 'Faixa de Risco por Mes' },
+  { id: 'densidade', filename: 'mapa_densidade.json', fallbackTitle: 'Mapa de Densidade' },
+  { id: 'mapa', filename: 'mapa_registros.json', fallbackTitle: 'Mapa de Registros' },
+  { id: 'correlacao', filename: 'correlacao_geral.json', fallbackTitle: 'Correlacao Geral' },
+  { id: 'desvios', filename: 'desvios_media_historica.json', fallbackTitle: 'Desvios da Media Historica' },
+  { id: 'relogio', filename: 'relogio_registros_mes.json', fallbackTitle: 'Relogio de Registros por Mes' },
+];
 
 const tooltipStyle = {
   backgroundColor: '#1C1C1E',
@@ -74,15 +57,120 @@ const tooltipStyle = {
   color: '#F2F2F7',
 };
 
+const formatNumber = (value: number) => new Intl.NumberFormat('pt-BR').format(value);
+
+const formatDecimal = (value: number, digits = 2) =>
+  new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value);
+
+const decodeNumericArray = (value: unknown): number[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => Number(item)).filter((item) => Number.isFinite(item));
+  }
+
+  if (!value || typeof value !== 'object') {
+    return [];
+  }
+
+  const encoded = value as EncodedNumericArray;
+  if (!encoded.dtype || !encoded.bdata) {
+    return [];
+  }
+
+  const binary = atob(encoded.bdata);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  const view = new DataView(bytes.buffer);
+  const result: number[] = [];
+
+  if (encoded.dtype === 'i4') {
+    for (let offset = 0; offset <= bytes.length - 4; offset += 4) {
+      result.push(view.getInt32(offset, true));
+    }
+    return result;
+  }
+
+  if (encoded.dtype === 'f8') {
+    for (let offset = 0; offset <= bytes.length - 8; offset += 8) {
+      result.push(view.getFloat64(offset, true));
+    }
+    return result;
+  }
+
+  return [];
+};
+
+const extractTitle = (chart: LoadedChart): string => {
+  const rawTitle = chart.figure.layout?.title;
+  if (typeof rawTitle === 'string' && rawTitle.trim()) {
+    return rawTitle;
+  }
+
+  if (rawTitle && typeof rawTitle === 'object' && typeof rawTitle.text === 'string' && rawTitle.text.trim()) {
+    return rawTitle.text;
+  }
+
+  return chart.fallbackTitle;
+};
+
+function PlotlyPanel({ chart, heightClass = 'h-[340px]' }: { chart: LoadedChart; heightClass?: string }) {
+  const plotRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!plotRef.current) {
+      return;
+    }
+
+    const layout = {
+      ...(chart.figure.layout || {}),
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      font: {
+        color: '#F2F2F7',
+        ...((chart.figure.layout?.font as Record<string, unknown> | undefined) || {}),
+      },
+      margin: {
+        l: 50,
+        r: 20,
+        t: 48,
+        b: 40,
+        ...((chart.figure.layout?.margin as Record<string, unknown> | undefined) || {}),
+      },
+    };
+
+    const config = {
+      responsive: true,
+      displaylogo: false,
+      modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+    };
+
+    void (Plotly as any).react(plotRef.current, chart.figure.data || [], layout, config);
+
+    return () => {
+      if (plotRef.current) {
+        (Plotly as any).purge(plotRef.current);
+      }
+    };
+  }, [chart]);
+
+  return <div ref={plotRef} className={`w-full ${heightClass}`} />;
+}
+
 export default function Orgaos() {
   const navigate = useNavigate();
   const [usuario, setUsuario] = useState<FirefighterUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [data, setData] = useState<AnalyticsResponse | null>(null);
+  const [charts, setCharts] = useState<LoadedChart[]>([]);
+  const [updatedAt, setUpdatedAt] = useState<string>('');
 
-  const fetchAnalytics = async (backgroundRefresh = false) => {
+  const fetchCharts = async (backgroundRefresh = false) => {
     const token = window.localStorage.getItem(AUTH_TOKEN_KEY);
 
     if (!token) {
@@ -98,22 +186,31 @@ export default function Orgaos() {
     }
 
     try {
-      const response = await fetch('/api/orgaos/analytics', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const loaded = await Promise.all(
+        chartFiles.map(async (item) => {
+          const response = await fetch(`/api/graficos/${item.filename}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
 
-      if (!response.ok) {
-        const errorPayload = (await response.json().catch(() => null)) as { message?: string } | null;
-        throw new Error(errorPayload?.message || 'Não foi possível carregar os gráficos de análise.');
-      }
+          if (!response.ok) {
+            throw new Error(`Falha ao carregar ${item.filename}`);
+          }
 
-      const payload = (await response.json()) as AnalyticsResponse;
-      setData(payload);
+          const figure = (await response.json()) as PlotlyFigure;
+          return {
+            ...item,
+            figure,
+          };
+        })
+      );
+
+      setCharts(loaded);
+      setUpdatedAt(new Date().toISOString());
       setErrorMessage('');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Não foi possível carregar os gráficos de análise.';
+      const message = error instanceof Error ? error.message : 'Nao foi possivel carregar os graficos em JSON.';
       setErrorMessage(message);
     } finally {
       setLoading(false);
@@ -131,7 +228,7 @@ export default function Orgaos() {
       }
     }
 
-    void fetchAnalytics(false);
+    void fetchCharts(false);
   }, []);
 
   const handleLogout = async () => {
@@ -146,7 +243,7 @@ export default function Orgaos() {
           },
         });
       } catch {
-        // logout local permanece funcional mesmo sem resposta do backend
+        // Local logout still works even if backend request fails.
       }
     }
 
@@ -154,22 +251,58 @@ export default function Orgaos() {
     navigate('/login', { replace: true });
   };
 
+  const totalRegistros = useMemo(() => {
+    const byYear = charts.find((item) => item.id === 'ano');
+    const trace = byYear?.figure.data?.[0];
+    const values = decodeNumericArray(trace?.y);
+    return values.reduce((acc, value) => acc + value, 0);
+  }, [charts]);
+
+  const totalPontos = useMemo(() => {
+    return charts.reduce((acc, chart) => {
+      const trace = chart.figure.data?.[0];
+      return acc + decodeNumericArray(trace?.y).length;
+    }, 0);
+  }, [charts]);
+
   const riscoMedio = useMemo(() => {
-    const valores = data?.graficos.boxplotRiscoMes ?? [];
-    if (!valores.length) {
+    const boxplot = charts.find((item) => item.id === 'boxplot');
+    const medianaTrace = boxplot?.figure.data?.find((trace) =>
+      typeof trace.name === 'string' ? trace.name.toLowerCase().includes('mediana') : false
+    );
+
+    const values = decodeNumericArray((medianaTrace || boxplot?.figure.data?.[0])?.y);
+    if (!values.length) {
       return 0;
     }
 
-    const total = valores.reduce((acc, item) => acc + Number(item.mediana || 0), 0);
-    return total / valores.length;
-  }, [data]);
+    const average = values.reduce((acc, value) => acc + value, 0) / values.length;
+    return Math.max(0, Math.min(1, average));
+  }, [charts]);
+
+  const chartById = useMemo(() => {
+    return charts.reduce<Record<string, LoadedChart>>((acc, chart) => {
+      acc[chart.id] = chart;
+      return acc;
+    }, {});
+  }, [charts]);
+
+  const mainHistoricalChart = chartById.cidades;
+  const monthlyChart = chartById.mes;
+  const yearlyChart = chartById.ano;
+  const mapDensityChart = chartById.densidade;
+  const mapRecordsChart = chartById.mapa;
+
+  const remainingCharts = useMemo(() => {
+    return charts.filter((chart) => !['cidades', 'mes', 'ano', 'densidade', 'mapa'].includes(chart.id));
+  }, [charts]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0A1929] flex items-center justify-center text-[#F2F2F7]">
         <div className="flex items-center gap-3 bg-[#1C1C1E]/80 border border-white/10 rounded-2xl px-6 py-4">
           <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          Carregando análises avançadas...
+          Carregando graficos dos JSON locais...
         </div>
       </div>
     );
@@ -180,24 +313,20 @@ export default function Orgaos() {
       <div className="bg-[#1C1C1E]/90 backdrop-blur-md border-b border-white/10 sticky top-0 z-40">
         <div className="max-w-[1600px] mx-auto px-8 py-4 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Sala de Análise dos Órgãos</h1>
-            <p className="text-sm text-gray-400">Visualizações estratégicas para profissionais de resposta</p>
+            <h1 className="text-2xl font-bold">Sala de Analise dos Orgaos</h1>
+            <p className="text-sm text-gray-400">Visualizacoes renderizadas direto dos JSON da pasta graficos</p>
           </div>
 
           <div className="flex items-center gap-3">
-            {data?.updatedAt && (
-              <span className="text-xs text-gray-300">
-                Atualizado: {new Date(data.updatedAt).toLocaleString('pt-BR')}
-              </span>
-            )}
+            {updatedAt && <span className="text-xs text-gray-300">Atualizado: {new Date(updatedAt).toLocaleString('pt-BR')}</span>}
 
             <button
               type="button"
-              onClick={() => void fetchAnalytics(true)}
+              onClick={() => void fetchCharts(true)}
               className="bg-[#1C1C1E]/80 border border-white/20 text-[#F2F2F7] px-3 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-[#2A2A2C] transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Atualizar
+              Recarregar JSON
             </button>
 
             <button
@@ -223,218 +352,106 @@ export default function Orgaos() {
       <div className="max-w-[1600px] mx-auto px-8 py-8 space-y-8">
         {usuario && (
           <div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl px-4 py-3 text-sm text-gray-200">
-            Sessão ativa: {usuario.name} ({usuario.email})
+            Sessao ativa: {usuario.name} ({usuario.email})
           </div>
         )}
 
-        {errorMessage && (
-          <div className="bg-[#FF3B30]/10 border border-[#FF3B30]/40 rounded-lg p-4 text-sm">
-            {errorMessage}
-          </div>
-        )}
+        {errorMessage && <div className="bg-[#FF3B30]/10 border border-[#FF3B30]/40 rounded-lg p-4 text-sm">{errorMessage}</div>}
 
         <div className="grid grid-cols-3 gap-6">
           <motion.div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-center gap-3 mb-2">
               <Flame className="w-5 h-5 text-[#FF3B30]" />
-              <h2 className="font-semibold">Total de Reportes</h2>
+              <h2 className="font-semibold">Total de Registros (JSON)</h2>
             </div>
-            <p className="text-4xl font-bold">{formatNumber(data?.resumo.totalReports ?? 0)}</p>
+            <p className="text-4xl font-bold">{formatNumber(totalRegistros)}</p>
           </motion.div>
 
           <motion.div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-center gap-3 mb-2">
               <Activity className="w-5 h-5 text-[#FF9500]" />
-              <h2 className="font-semibold">Últimas 24h</h2>
+              <h2 className="font-semibold">Arquivos Carregados</h2>
             </div>
-            <p className="text-4xl font-bold">{formatNumber(data?.resumo.reportsLast24h ?? 0)}</p>
+            <p className="text-4xl font-bold">{formatNumber(charts.length)}</p>
           </motion.div>
 
           <motion.div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-center gap-3 mb-2">
               <AlertTriangle className="w-5 h-5 text-[#FFCC00]" />
-              <h2 className="font-semibold">Risco Alto</h2>
+              <h2 className="font-semibold">Risco Medio (Mediana)</h2>
             </div>
-            <p className="text-4xl font-bold">{formatNumber(data?.resumo.highRiskReports ?? 0)}</p>
-            <p className="text-xs text-gray-400 mt-2">Mediana média de risco: {formatDecimal(riscoMedio * 100, 1)}%</p>
+            <p className="text-4xl font-bold">{formatDecimal(riscoMedio * 100, 1)}%</p>
+            <p className="text-xs text-gray-400 mt-2">Pontos totais plotados: {formatNumber(totalPontos)}</p>
           </motion.div>
         </div>
 
-        <div className="grid grid-cols-2 gap-8">
-          <div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6">
-            <h3 className="font-semibold mb-4">Top Localidades com Ocorrências</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={data?.graficos.cidadesMaisOcorrencias || []} layout="vertical" margin={{ left: 32 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
-                <XAxis type="number" stroke="#F2F2F7" />
-                <YAxis type="category" dataKey="localidade" stroke="#F2F2F7" width={140} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="focos" fill="#FF4500" radius={[0, 8, 8, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        {mainHistoricalChart && (
+          <section className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6 lg:p-8">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-5">
+              <h3 className="font-semibold text-lg">{extractTitle(mainHistoricalChart)}</h3>
+              <p className="text-xs text-gray-400">Visualizacao ampliada para apoiar comparacao entre municipios.</p>
+            </div>
+            <PlotlyPanel chart={mainHistoricalChart} heightClass="h-[420px] lg:h-[560px]" />
+          </section>
+        )}
 
-          <div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6">
-            <h3 className="font-semibold mb-4">Registros Históricos por Mês</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={data?.graficos.registrosHistoricosMes || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
-                <XAxis dataKey="mesLabel" stroke="#F2F2F7" />
-                <YAxis stroke="#F2F2F7" />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Line dataKey="quantidade" type="monotone" stroke="#FF3B30" strokeWidth={3} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+        {(monthlyChart || yearlyChart) && (
+          <section className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6 lg:p-8">
+            <div className="mb-5">
+              <h3 className="font-semibold text-lg">Evolucao Temporal dos Registros</h3>
+              <p className="text-xs text-gray-400 mt-1">Mes e ano na mesma secao para facilitar leitura de tendencia e sazonalidade.</p>
+            </div>
 
-          <div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6">
-            <h3 className="font-semibold mb-4">Registros por Hora</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={data?.graficos.registrosHistoricosHora || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
-                <XAxis dataKey="hora" stroke="#F2F2F7" />
-                <YAxis stroke="#F2F2F7" />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Line dataKey="ocorrencias" type="monotone" stroke="#FF6A00" strokeWidth={2.5} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {monthlyChart && (
+                <div className="bg-black/10 border border-white/10 rounded-lg p-4">
+                  <h4 className="font-medium mb-3 text-sm">{extractTitle(monthlyChart)}</h4>
+                  <PlotlyPanel chart={monthlyChart} heightClass="h-[320px] lg:h-[360px]" />
+                </div>
+              )}
 
-          <div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6">
-            <h3 className="font-semibold mb-4">Variação de FRP por Mês</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={data?.graficos.variacaoFrpMes || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
-                <XAxis dataKey="mesLabel" stroke="#F2F2F7" />
-                <YAxis stroke="#F2F2F7" />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Line dataKey="media_frp" type="monotone" stroke="#34C759" strokeWidth={3} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+              {yearlyChart && (
+                <div className="bg-black/10 border border-white/10 rounded-lg p-4">
+                  <h4 className="font-medium mb-3 text-sm">{extractTitle(yearlyChart)}</h4>
+                  <PlotlyPanel chart={yearlyChart} heightClass="h-[320px] lg:h-[360px]" />
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
-          <div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6">
-            <h3 className="font-semibold mb-4">FRP por Hora</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={data?.graficos.frpHora || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
-                <XAxis dataKey="hora" stroke="#F2F2F7" />
-                <YAxis stroke="#F2F2F7" />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Line dataKey="media_frp" type="monotone" stroke="#00B8D9" strokeWidth={2.5} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+        {(mapDensityChart || mapRecordsChart) && (
+          <section className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6 lg:p-8">
+            <div className="mb-5">
+              <h3 className="font-semibold text-lg">Mapas de Monitoramento</h3>
+              <p className="text-xs text-gray-400 mt-1">Visualizacao ampliada para leitura espacial de densidade e distribuicao de registros.</p>
+            </div>
 
-          <div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6">
-            <h3 className="font-semibold mb-4">Distribuição de Classes de Risco</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={data?.graficos.porClasse || []}
-                  dataKey="valor"
-                  nameKey="nome"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={95}
-                  label={(entry) => `${entry.nome}: ${entry.valor}`}
-                >
-                  {(data?.graficos.porClasse || []).map((entry) => (
-                    <Cell key={`classe-${entry.nome}`} fill={classeColors[entry.nome] || '#8E8E93'} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={tooltipStyle} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {mapDensityChart && (
+                <div className="bg-black/10 border border-white/10 rounded-lg p-4">
+                  <h4 className="font-medium mb-3 text-sm">{extractTitle(mapDensityChart)}</h4>
+                  <PlotlyPanel chart={mapDensityChart} heightClass="h-[420px] lg:h-[560px]" />
+                </div>
+              )}
 
-          <div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6">
-            <h3 className="font-semibold mb-4">FRP x Temperatura</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <ScatterChart>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
-                <XAxis dataKey="temperatura" name="Temperatura" unit="°C" stroke="#F2F2F7" />
-                <YAxis dataKey="media_frp" name="FRP" stroke="#F2F2F7" />
-                <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={tooltipStyle} />
-                <Scatter name="FRP" data={data?.graficos.frpTemperatura || []} fill="#FF3B30" />
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
+              {mapRecordsChart && (
+                <div className="bg-black/10 border border-white/10 rounded-lg p-4">
+                  <h4 className="font-medium mb-3 text-sm">{extractTitle(mapRecordsChart)}</h4>
+                  <PlotlyPanel chart={mapRecordsChart} heightClass="h-[420px] lg:h-[560px]" />
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
-          <div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6">
-            <h3 className="font-semibold mb-4">FRP x Vento</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <ScatterChart>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
-                <XAxis dataKey="vento" name="Vento" unit="m/s" stroke="#F2F2F7" />
-                <YAxis dataKey="media_frp" name="FRP" stroke="#F2F2F7" />
-                <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={tooltipStyle} />
-                <Scatter name="FRP" data={data?.graficos.frpVento || []} fill="#FF9500" />
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6 col-span-2">
-            <h3 className="font-semibold mb-4">Faixa de Risco por Mês (Min/Q1/Mediana/Q3/Max)</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={data?.graficos.boxplotRiscoMes || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
-                <XAxis dataKey="mesLabel" stroke="#F2F2F7" />
-                <YAxis stroke="#F2F2F7" domain={[0, 1]} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Line dataKey="minimo" stroke="#8E8E93" dot={false} />
-                <Line dataKey="q1" stroke="#00B8D9" dot={false} />
-                <Line dataKey="mediana" stroke="#34C759" strokeWidth={3} dot={false} />
-                <Line dataKey="q3" stroke="#FF9500" dot={false} />
-                <Line dataKey="maximo" stroke="#FF3B30" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6 col-span-2">
-            <h3 className="font-semibold mb-4">Registros Históricos por Ano</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={data?.graficos.registrosHistoricosAno || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
-                <XAxis dataKey="ano" stroke="#F2F2F7" />
-                <YAxis stroke="#F2F2F7" />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="quantidade" fill="#FF6A00" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6 overflow-x-auto">
-          <h3 className="font-semibold mb-4">Detalhes da Base de Dados (últimos 20 registros)</h3>
-          <table className="w-full text-sm text-left min-w-[1100px]">
-            <thead>
-              <tr className="text-gray-400 border-b border-white/10">
-                <th className="py-2 pr-3">Data</th>
-                <th className="py-2 pr-3">Descrição</th>
-                <th className="py-2 pr-3">Classe</th>
-                <th className="py-2 pr-3">Prob.</th>
-                <th className="py-2 pr-3">FRP</th>
-                <th className="py-2 pr-3">Temp (°C)</th>
-                <th className="py-2 pr-3">Umidade (%)</th>
-                <th className="py-2 pr-3">Vento (m/s)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data?.ultimosReportes || []).map((item) => (
-                <tr key={item.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                  <td className="py-2 pr-3 whitespace-nowrap">{new Date(item.created_at).toLocaleString('pt-BR')}</td>
-                  <td className="py-2 pr-3">{item.description || 'Sem descrição'}</td>
-                  <td className="py-2 pr-3 uppercase">{item.classe_prevista || 'indefinido'}</td>
-                  <td className="py-2 pr-3">{item.prob_incendio != null ? `${formatDecimal(item.prob_incendio * 100, 1)}%` : '-'}</td>
-                  <td className="py-2 pr-3">{item.frp_previsto != null ? formatDecimal(item.frp_previsto) : '-'}</td>
-                  <td className="py-2 pr-3">{item.temperatura_c != null ? formatDecimal(item.temperatura_c, 1) : '-'}</td>
-                  <td className="py-2 pr-3">{item.umidade_relativa_pct != null ? formatDecimal(item.umidade_relativa_pct, 1) : '-'}</td>
-                  <td className="py-2 pr-3">{item.vento_ms != null ? formatDecimal(item.vento_ms, 2) : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+          {remainingCharts.map((chart) => (
+            <div key={chart.id} className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6">
+              <h3 className="font-semibold mb-4">{extractTitle(chart)}</h3>
+              <PlotlyPanel chart={chart} />
+            </div>
+          ))}
         </div>
       </div>
     </div>

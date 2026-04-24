@@ -8,19 +8,13 @@ import {
   Users, 
   Heart,
   Shield,
-  Leaf,
-  Lock,
-  Bell,
-  Eye
+  Leaf
 } from 'lucide-react';
 import { Header } from '../components/Header';
-import { useState } from 'react';
 import defesaCivilLogo from 'figma:asset/ebe836f5a99a1e98a0f9906e2f1f48ae5d728321.png';
 import meioAmbienteImg from 'figma:asset/feb218a1b7fd3fb3ec618bc265cec8829a328e2c.png';
 
 export default function Educacao() {
-  const [loginVisible, setLoginVisible] = useState(false);
-
   const dicasPreventivas = [
     {
       emoji: "🚫",
@@ -374,119 +368,6 @@ export default function Educacao() {
           </motion.div>
         </section>
 
-        {/* Painel para Órgãos (Login) */}
-        <section>
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.2 }}
-            className="bg-gradient-to-r from-[#1C1C1E] to-[#2C2C2E] border border-[#FF3B30]/30 rounded-3xl p-8"
-          >
-            <div className="text-center mb-8">
-              <div className="flex justify-center mb-4">
-                <div className="bg-[#FF3B30]/20 p-4 rounded-full">
-                  <Lock className="w-10 h-10 text-[#FF3B30]" />
-                </div>
-              </div>
-              <h2 className="text-3xl font-bold text-[#F2F2F7] mb-3">
-                Painel Exclusivo para Órgãos
-              </h2>
-              <p className="text-[#F2F2F7]/70 text-lg">
-                Acesso restrito para Bombeiros, Defesa Civil e Órgãos Ambientais
-              </p>
-            </div>
-
-            {!loginVisible ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <motion.div 
-                  whileHover={{ scale: 1.05 }}
-                  className="bg-[#1C1C1E]/60 backdrop-blur-sm rounded-xl p-6 text-center"
-                >
-                  <Bell className="w-8 h-8 text-[#FF3B30] mx-auto mb-3" />
-                  <h3 className="text-lg font-bold text-[#F2F2F7] mb-2">
-                    Alertas Prioritários
-                  </h3>
-                  <p className="text-[#F2F2F7]/70">
-                    Receba notificações em tempo real
-                  </p>
-                </motion.div>
-                
-                <motion.div 
-                  whileHover={{ scale: 1.05 }}
-                  className="bg-[#1C1C1E]/60 backdrop-blur-sm rounded-xl p-6 text-center"
-                >
-                  <Eye className="w-8 h-8 text-[#FF9500] mx-auto mb-3" />
-                  <h3 className="text-lg font-bold text-[#F2F2F7] mb-2">
-                    Monitoramento
-                  </h3>
-                  <p className="text-[#F2F2F7]/70">
-                    Visão completa de todos os reportes
-                  </p>
-                </motion.div>
-                
-                <motion.div 
-                  whileHover={{ scale: 1.05 }}
-                  className="bg-[#1C1C1E]/60 backdrop-blur-sm rounded-xl p-6 text-center"
-                >
-                  <Users className="w-8 h-8 text-[#34C759] mx-auto mb-3" />
-                  <h3 className="text-lg font-bold text-[#F2F2F7] mb-2">
-                    Coordenação
-                  </h3>
-                  <p className="text-[#F2F2F7]/70">
-                    Gerencie equipes e recursos
-                  </p>
-                </motion.div>
-              </div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="max-w-md mx-auto bg-[#1C1C1E]/80 backdrop-blur-md rounded-2xl p-8"
-              >
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-[#F2F2F7] mb-2 font-medium">
-                      Email Institucional
-                    </label>
-                    <input 
-                      type="email"
-                      placeholder="usuario@orgao.gov.br"
-                      className="w-full px-4 py-3 bg-[#0A1929] border border-white/10 rounded-xl text-[#F2F2F7] focus:border-[#FF3B30] focus:outline-none focus:ring-2 focus:ring-[#FF3B30]/50 transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[#F2F2F7] mb-2 font-medium">
-                      Senha
-                    </label>
-                    <input 
-                      type="password"
-                      placeholder="••••••••"
-                      className="w-full px-4 py-3 bg-[#0A1929] border border-white/10 rounded-xl text-[#F2F2F7] focus:border-[#FF3B30] focus:outline-none focus:ring-2 focus:ring-[#FF3B30]/50 transition-all"
-                    />
-                  </div>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full bg-gradient-to-r from-[#FF3B30] to-[#FF6A00] text-white font-bold text-lg py-4 rounded-xl shadow-[0_4px_20px_rgba(255,59,48,0.4)] hover:shadow-[0_4px_30px_rgba(255,59,48,0.6)] transition-all"
-                  >
-                    Acessar Painel
-                  </motion.button>
-                </div>
-              </motion.div>
-            )}
-
-            <div className="text-center">
-              <motion.button
-                onClick={() => setLoginVisible(!loginVisible)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-[#FF3B30] to-[#FF6A00] text-white font-bold text-lg px-8 py-4 rounded-xl shadow-[0_4px_20px_rgba(255,59,48,0.4)] hover:shadow-[0_4px_30px_rgba(255,59,48,0.6)] transition-all"
-              >
-                {loginVisible ? 'Voltar' : 'Fazer Login'}
-              </motion.button>
-            </div>
-          </motion.div>
-        </section>
       </div>
     </div>
   );

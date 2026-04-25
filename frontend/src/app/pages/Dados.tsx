@@ -308,9 +308,6 @@ export default function Dados() {
               />
             </LineChart>
           </ResponsiveContainer>
-          <p className="text-gray-400 text-sm mt-4 text-center">
-            📡 Dados atualizados automaticamente pelo backend
-          </p>
         </motion.div>
       </div>
     </div>

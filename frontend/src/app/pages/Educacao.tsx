@@ -279,35 +279,26 @@ export default function Educacao() {
                   className="rounded-2xl w-full h-auto object-cover"
                 />
               </div>
-              <div className="space-y-4">
-                <div className="bg-[#1C1C1E]/60 backdrop-blur-sm rounded-xl p-6">
-                  <p className="text-[#F2F2F7] text-2xl font-bold mb-3">
-                    🎨 Aprenda brincando!
-                  </p>
-                  <p className="text-[#F2F2F7]/80 text-lg leading-relaxed">
-                    Jogos, desenhos e atividades divertidas para ensinar
-                    segurança de forma lúdica.
-                  </p>
+              <motion.a
+                href="https://www.embrapa.br/contando-ciencia/cartilhas-ema"
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ scale: 1.03, y: -4 }}
+                whileTap={{ scale: 0.98 }}
+                className="bg-[#1C1C1E]/60 backdrop-blur-sm rounded-2xl p-7 border border-white/10 hover:border-[#34C759]/60 transition-all cursor-pointer"
+              >
+                <p className="text-[#F2F2F7] text-2xl font-bold mb-3">
+                  🎒 Cartilhas e atividades para crianças
+                </p>
+                <p className="text-[#F2F2F7]/80 text-lg leading-relaxed">
+                  Um material bem ilustrado para aprender sobre meio ambiente e prevenção,
+                  com atividades e cartilhas para imprimir.
+                </p>
+                <div className="mt-5 inline-flex items-center gap-2 text-[#34C759] font-semibold">
+                  <span>Abrir cartilhas da Embrapa</span>
+                  <span aria-hidden>→</span>
                 </div>
-                <div className="bg-[#1C1C1E]/60 backdrop-blur-sm rounded-xl p-6">
-                  <p className="text-[#F2F2F7] text-2xl font-bold mb-3">
-                    📚 Cartilhas ilustradas
-                  </p>
-                  <p className="text-[#F2F2F7]/80 text-lg leading-relaxed">
-                    Material educativo com linguagem simples e ilustrações
-                    coloridas.
-                  </p>
-                </div>
-                <div className="bg-[#1C1C1E]/60 backdrop-blur-sm rounded-xl p-6">
-                  <p className="text-[#F2F2F7] text-2xl font-bold mb-3">
-                    👨‍🚒 Heróis do dia a dia
-                  </p>
-                  <p className="text-[#F2F2F7]/80 text-lg leading-relaxed">
-                    Conheça o trabalho dos bombeiros e como eles protegem nossa
-                    comunidade.
-                  </p>
-                </div>
-              </div>
+              </motion.a>
             </div>
           </motion.div>
         </section>

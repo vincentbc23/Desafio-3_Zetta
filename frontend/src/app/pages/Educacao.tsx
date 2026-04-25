@@ -4,6 +4,7 @@ import {
   ShieldAlert, 
   AlertTriangle, 
   Phone, 
+  Video, 
   Users, 
   Heart,
   Shield,
@@ -53,6 +54,27 @@ export default function Educacao() {
     { numero: "3", texto: "Não tente apagar sozinho se for grande" },
     { numero: "4", texto: "Informe a localização exata" },
     { numero: "5", texto: "Use o site Alerta Fogo para reportar" }
+  ];
+
+  const videosEducativos = [
+    { 
+      titulo: "Prevenção de Incêndios Florestais", 
+      duracao: "YouTube",
+      nivel: "Todos",
+      url: "https://youtu.be/XyZ_aBS0Jyc?si=R6_bTw_vPHuhuxla"
+    },
+    { 
+      titulo: "Como Agir em Situações de Fogo", 
+      duracao: "YouTube",
+      nivel: "Todos",
+      url: "https://youtu.be/Duc554Oq4UM?si=6H2qzFRngbrhsxQa"
+    },
+    { 
+      titulo: "Educação e Segurança Contra Incêndios", 
+      duracao: "YouTube",
+      nivel: "Todos",
+      url: "https://www.youtube.com/watch?v=SEouArniFQg"
+    }
   ];
 
   const parceiros = [
@@ -182,6 +204,57 @@ export default function Educacao() {
               <Phone className="w-7 h-7" />
               LIGAR 193 - EMERGÊNCIA
             </motion.a>
+          </motion.div>
+        </section>
+
+        {/* Vídeos Educativos */}
+        <section className="mb-16">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+          >
+            <h2 className="text-3xl font-bold text-[#F2F2F7] mb-8 flex items-center gap-3">
+              <Video className="w-8 h-8 text-[#FF9500]" />
+              Vídeos Educativos
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {videosEducativos.map((video, index) => (
+                <motion.a
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.7 + 0.1 * index }}
+                  whileHover={{ scale: 1.03 }}
+                  href={video.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-[#1C1C1E]/80 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden cursor-pointer hover:border-[#FF9500]/50 transition-all"
+                >
+                  <div className="relative h-48 bg-gradient-to-br from-[#FF3B30]/30 to-[#FF9500]/30 flex items-center justify-center">
+                    <motion.div
+                      whileHover={{ scale: 1.2 }}
+                      className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center"
+                    >
+                      <div className="w-0 h-0 border-t-8 border-t-transparent border-l-12 border-l-[#FF3B30] border-b-8 border-b-transparent ml-1" />
+                    </motion.div>
+                  </div>
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="px-3 py-1 bg-[#FF9500]/20 text-[#FF9500] rounded-full text-sm font-medium">
+                        {video.nivel}
+                      </span>
+                      <span className="text-[#F2F2F7]/60 text-sm">
+                        {video.duracao}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-bold text-[#F2F2F7]">
+                      {video.titulo}
+                    </h3>
+                  </div>
+                </motion.a>
+              ))}
+            </div>
           </motion.div>
         </section>
 

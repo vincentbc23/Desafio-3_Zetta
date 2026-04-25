@@ -17,88 +17,101 @@ import {
 } from 'lucide-react';
 import { AUTH_TOKEN_KEY, AUTH_USER_KEY, clearAuthSession, type FirefighterUser } from '../auth/session';
 
-const alertasPrioritarios = [
-  {
-    id: 1,
-    tipo: 'CRÍTICO',
-    descricao: 'Incêndio florestal de grandes proporções - Zona Norte',
-    localizacao: 'Brasília - DF (-15.7939, -47.8828)',
-    status: 'EM ANDAMENTO',
-    tempo: '5 min atrás',
-    recursos: '4 viaturas, 2 aeronaves',
-    cor: '#FF3B30'
-  },
-  {
-    id: 2,
-    tipo: 'CRÍTICO',
-    descricao: 'Incêndio próximo a reserva ambiental',
-    localizacao: 'Unaí - MG (-16.3578, -46.9064)',
-    status: 'EM ANDAMENTO',
-    tempo: '12 min atrás',
-    recursos: '3 viaturas, 1 helicóptero',
-    cor: '#FF3B30'
-  },
-  {
-    id: 3,
-    tipo: 'CRÍTICO',
-    descricao: 'Fogo em área de vegetação densa',
-    localizacao: 'Fortaleza - CE (-3.7172, -38.5433)',
-    status: 'EM ANDAMENTO',
-    tempo: '18 min atrás',
-    recursos: '5 viaturas, 15 bombeiros',
-    cor: '#FF3B30'
-  },
-  {
-    id: 4,
-    tipo: 'URGENTE',
-    descricao: 'Foco de incêndio próximo a área residencial',
-    localizacao: 'São Paulo - SP (-23.5505, -46.6333)',
-    status: 'RESPONDENDO',
-    tempo: '22 min atrás',
-    recursos: '2 viaturas em deslocamento',
-    cor: '#FF9500'
-  },
-  {
-    id: 5,
-    tipo: 'URGENTE',
-    descricao: 'Incêndio em plantação agrícola',
-    localizacao: 'Paracatu - MG (-17.2219, -46.8750)',
-    status: 'RESPONDENDO',
-    tempo: '35 min atrás',
-    recursos: '2 viaturas, 8 bombeiros',
-    cor: '#FF9500'
-  },
-  {
-    id: 6,
-    tipo: 'URGENTE',
-    descricao: 'Queimada em área de pastagem',
-    localizacao: 'Salvador - BA (-12.9714, -38.5014)',
-    status: 'CONTROLADO',
-    tempo: '41 min atrás',
-    recursos: '1 viatura, 4 bombeiros',
-    cor: '#FF9500'
-  },
-  {
-    id: 7,
-    tipo: 'MODERADO',
-    descricao: 'Queimada controlada em área rural',
-    localizacao: 'Patos de Minas - MG (-18.5789, -46.5181)',
-    status: 'MONITORANDO',
-    tempo: '52 min atrás',
-    recursos: '1 viatura em observação',
-    cor: '#FFCC00'
-  },
-  {
-    id: 8,
-    tipo: 'MODERADO',
-    descricao: 'Pequeno foco em terreno baldio',
-    localizacao: 'Rio de Janeiro - RJ (-22.9068, -43.1729)',
-    status: 'MONITORANDO',
-    tempo: '1h 5min atrás',
-    recursos: '1 viatura de prontidão',
-    cor: '#FFCC00'
+type ApiAlerta = {
+  id: number;
+  latitude: number | null;
+  longitude: number | null;
+  description: string | null;
+  created_at: string;
+  prob_incendio: number | null;
+  classe_prevista: string | null;
+  frp_previsto: number | null;
+  temperatura_c: number | null;
+  umidade_relativa_pct: number | null;
+  vento_ms: number | null;
+};
+
+type AlertaPainel = {
+  id: number;
+  tipo: 'CRÍTICO' | 'URGENTE' | 'MODERADO';
+  descricao: string;
+  localizacao: string;
+  status: 'EM ANDAMENTO' | 'RESPONDENDO' | 'MONITORANDO';
+  tempo: string;
+  recursos: string;
+  intensidadeProvavel: string;
+  temperatura: string;
+  umidade: string;
+  vento: string;
+  cor: string;
+};
+
+const formatTempoRelativo = (createdAt: string) => {
+  const diffMs = Date.now() - new Date(createdAt).getTime();
+  const diffMin = Math.max(1, Math.floor(diffMs / 60000));
+
+  if (diffMin < 60) {
+    return `${diffMin} min atrás`;
   }
-];
+
+  const hours = Math.floor(diffMin / 60);
+  const minutes = diffMin % 60;
+  return minutes > 0 ? `${hours}h ${minutes}min atrás` : `${hours}h atrás`;
+};
+
+const classifyAlert = (probIncendio: number | null, classePrevista: string | null): AlertaPainel['tipo'] => {
+  const classe = (classePrevista || '').toLowerCase();
+  const prob = Number(probIncendio || 0);
+
+  if (classe === 'alto' || prob >= 0.7) {
+    return 'CRÍTICO';
+  }
+
+  if (classe === 'medio' || prob >= 0.4) {
+    return 'URGENTE';
+  }
+
+  return 'MODERADO';
+};
+
+const buildAlertaPainel = (item: ApiAlerta): AlertaPainel => {
+  const tipo = classifyAlert(item.prob_incendio, item.classe_prevista);
+  const lat = typeof item.latitude === 'number' ? item.latitude.toFixed(4) : 'N/A';
+  const lon = typeof item.longitude === 'number' ? item.longitude.toFixed(4) : 'N/A';
+  const intensidadeProvavel =
+    typeof item.frp_previsto === 'number'
+      ? `${item.frp_previsto.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FRP`
+      : 'Nao informado';
+
+  return {
+    id: item.id,
+    tipo,
+    descricao: item.description || 'Reporte de foco de incendio',
+    localizacao: `Coordenadas (${lat}, ${lon})`,
+    status: tipo === 'CRÍTICO' ? 'EM ANDAMENTO' : tipo === 'URGENTE' ? 'RESPONDENDO' : 'MONITORANDO',
+    tempo: formatTempoRelativo(item.created_at),
+    recursos:
+      tipo === 'CRÍTICO'
+        ? '4 viaturas, 2 aeronaves'
+        : tipo === 'URGENTE'
+          ? '2 viaturas em deslocamento'
+          : '1 viatura em observação',
+    intensidadeProvavel,
+    temperatura:
+      typeof item.temperatura_c === 'number'
+        ? `${item.temperatura_c.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} °C`
+        : 'Nao informado',
+    umidade:
+      typeof item.umidade_relativa_pct === 'number'
+        ? `${item.umidade_relativa_pct.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+        : 'Nao informado',
+    vento:
+      typeof item.vento_ms === 'number'
+        ? `${item.vento_ms.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} m/s`
+        : 'Nao informado',
+    cor: tipo === 'CRÍTICO' ? '#FF3B30' : tipo === 'URGENTE' ? '#FF9500' : '#FFCC00',
+  };
+};
 
 const recursosDisponiveis = [
   { tipo: 'Viaturas', total: 45, ativas: 12, disponiveis: 33 },
@@ -112,6 +125,8 @@ export default function Painel() {
   const [filtroAlerta, setFiltroAlerta] = useState('TODOS');
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const [usuario, setUsuario] = useState<FirefighterUser | null>(null);
+  const [alertasPrioritarios, setAlertasPrioritarios] = useState<AlertaPainel[]>([]);
+  const [alertasErro, setAlertasErro] = useState('');
 
   useEffect(() => {
     const token = window.localStorage.getItem(AUTH_TOKEN_KEY);
@@ -130,6 +145,28 @@ export default function Painel() {
       }
     }
 
+    const loadAlertas = async (tokenValue: string) => {
+      try {
+        const response = await fetch('/api/dados', {
+          headers: {
+            Authorization: `Bearer ${tokenValue}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Falha ao carregar alertas prioritarios.');
+        }
+
+        const data = (await response.json()) as { ultimosReportes?: ApiAlerta[] };
+        const alertas = (data.ultimosReportes || []).map(buildAlertaPainel);
+        setAlertasPrioritarios(alertas);
+        setAlertasErro('');
+      } catch {
+        setAlertasPrioritarios([]);
+        setAlertasErro('Nao foi possivel carregar os alertas prioritarios do banco de dados.');
+      }
+    };
+
     const validateSession = async () => {
       try {
         const response = await fetch('/api/auth/me', {
@@ -145,6 +182,7 @@ export default function Painel() {
         const data = (await response.json()) as { firefighter: FirefighterUser };
         window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.firefighter));
         setUsuario(data.firefighter);
+        await loadAlertas(token);
       } catch {
         window.localStorage.removeItem(AUTH_TOKEN_KEY);
         window.localStorage.removeItem(AUTH_USER_KEY);
@@ -355,6 +393,18 @@ export default function Painel() {
               </div>
 
               <div className="space-y-4 max-h-[600px] overflow-y-auto">
+                {alertasErro && (
+                  <div className="bg-[#FF3B30]/10 border border-[#FF3B30]/40 rounded-lg p-4 text-sm text-[#F2F2F7]">
+                    {alertasErro}
+                  </div>
+                )}
+
+                {!alertasErro && alertasFiltrados.length === 0 && (
+                  <div className="bg-[#2C2C2E] border border-white/10 rounded-lg p-4 text-sm text-gray-300">
+                    Nenhum alerta prioritario encontrado para o filtro selecionado.
+                  </div>
+                )}
+
                 {alertasFiltrados.map((alerta, index) => (
                   <motion.div
                     key={alerta.id}
@@ -395,13 +445,24 @@ export default function Painel() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2 mt-4">
-                      <button className="flex-1 bg-[#FF3B30] hover:bg-[#FF6A00] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                        Despachar Unidade
-                      </button>
-                      <button className="bg-[#3C3C3E] hover:bg-[#4C4C4E] text-[#F2F2F7] px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                        Ver Detalhes
-                      </button>
+                    <div className="mt-4 rounded-lg border border-[#FF9500]/40 bg-[#FF9500]/10 px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-[#FF9500]">Provavel intensidade do fogo</p>
+                      <p className="text-2xl font-extrabold text-[#F2F2F7] mt-1">{alerta.intensidadeProvavel}</p>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                      <div className="bg-black/20 rounded-lg px-3 py-2">
+                        <p className="text-gray-400 text-xs">Temperatura</p>
+                        <p className="text-[#F2F2F7] font-semibold">{alerta.temperatura}</p>
+                      </div>
+                      <div className="bg-black/20 rounded-lg px-3 py-2">
+                        <p className="text-gray-400 text-xs">Umidade</p>
+                        <p className="text-[#F2F2F7] font-semibold">{alerta.umidade}</p>
+                      </div>
+                      <div className="bg-black/20 rounded-lg px-3 py-2">
+                        <p className="text-gray-400 text-xs">Vento</p>
+                        <p className="text-[#F2F2F7] font-semibold">{alerta.vento}</p>
+                      </div>
                     </div>
                   </motion.div>
                 ))}
@@ -452,26 +513,6 @@ export default function Painel() {
               </div>
             </div>
 
-            <div className="bg-[#1C1C1E]/80 backdrop-blur-md border border-white/10 rounded-xl p-6">
-              <h3 className="text-lg font-bold text-[#F2F2F7] mb-4">Ações Rápidas</h3>
-              <div className="space-y-2">
-                <button className="w-full bg-[#FF3B30] hover:bg-[#FF6A00] text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
-                  <Bell className="w-5 h-5" />
-                  Emitir Alerta Geral
-                </button>
-                <button
-                  onClick={() => navigate('/mapa')}
-                  className="w-full bg-[#2C2C2E] hover:bg-[#3C3C3E] text-[#F2F2F7] px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                  <MapPin className="w-5 h-5" />
-                  Ver Mapa Completo
-                </button>
-                <button className="w-full bg-[#2C2C2E] hover:bg-[#3C3C3E] text-[#F2F2F7] px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Coordenar Equipes
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </div>

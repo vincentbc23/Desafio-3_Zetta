@@ -109,19 +109,34 @@ export const getDados = async (_req, res, next) => {
       ),
       query(
         `
+          WITH latest_predictions AS (
+            SELECT DISTINCT ON (p.report_id)
+              p.report_id,
+              p.frp_previsto,
+              LOWER(TRIM(COALESCE(p.classe_prevista, ''))) AS classe_prevista_norm
+            FROM predictions p
+            ORDER BY p.report_id, p.created_at DESC
+          )
           SELECT
             COALESCE(
               CASE
-                WHEN p.prob_incendio IS NOT NULL AND p.prob_incendio >= 0.7 THEN 'alto'
-                WHEN p.prob_incendio IS NOT NULL AND p.prob_incendio >= 0.4 THEN 'medio'
-                WHEN p.prob_incendio IS NOT NULL THEN 'controlado'
-                WHEN TRIM(COALESCE(p.classe_prevista, '')) = '' THEN NULL
-                ELSE LOWER(p.classe_prevista)
+                WHEN lp.frp_previsto IS NOT NULL AND lp.frp_previsto > 500 THEN 'alto'
+                WHEN lp.frp_previsto IS NOT NULL AND lp.frp_previsto >= 50 THEN 'moderado'
+                WHEN lp.frp_previsto IS NOT NULL THEN 'leve'
+                WHEN lp.classe_prevista_norm IN ('alto', 'medio', 'moderado', 'baixo', 'leve', 'controlado') THEN
+                  CASE
+                    WHEN lp.classe_prevista_norm IN ('medio', 'moderado') THEN 'moderado'
+                    WHEN lp.classe_prevista_norm IN ('baixo', 'leve', 'controlado') THEN 'leve'
+                    ELSE lp.classe_prevista_norm
+                  END
+                WHEN lp.classe_prevista_norm = '' THEN NULL
+                ELSE lp.classe_prevista_norm
               END,
               'indefinido'
             ) AS nome,
             COUNT(*)::int AS valor
-          FROM predictions p
+          FROM reports r
+          LEFT JOIN latest_predictions lp ON lp.report_id = r.id
           GROUP BY 1
           ORDER BY 2 DESC
         `
@@ -150,9 +165,11 @@ export const getDados = async (_req, res, next) => {
             SELECT
               prob_incendio,
               CASE
-                WHEN prob_incendio IS NOT NULL AND prob_incendio >= 0.7 THEN 'alto'
-                WHEN prob_incendio IS NOT NULL AND prob_incendio >= 0.4 THEN 'medio'
-                WHEN prob_incendio IS NOT NULL THEN 'controlado'
+                WHEN frp_previsto IS NOT NULL AND frp_previsto > 500 THEN 'alto'
+                WHEN frp_previsto IS NOT NULL AND frp_previsto >= 50 THEN 'moderado'
+                WHEN frp_previsto IS NOT NULL THEN 'leve'
+                WHEN LOWER(TRIM(COALESCE(classe_prevista, ''))) IN ('medio', 'moderado') THEN 'moderado'
+                WHEN LOWER(TRIM(COALESCE(classe_prevista, ''))) IN ('baixo', 'leve', 'controlado') THEN 'leve'
                 WHEN TRIM(COALESCE(classe_prevista, '')) = '' THEN NULL
                 ELSE LOWER(classe_prevista)
               END AS classe_prevista,
@@ -225,9 +242,11 @@ export const getOrgaosAnalytics = async (_req, res, next) => {
           SELECT
             COALESCE(
               CASE
-                WHEN p.prob_incendio IS NOT NULL AND p.prob_incendio >= 0.7 THEN 'alto'
-                WHEN p.prob_incendio IS NOT NULL AND p.prob_incendio >= 0.4 THEN 'medio'
-                WHEN p.prob_incendio IS NOT NULL THEN 'controlado'
+                WHEN p.frp_previsto IS NOT NULL AND p.frp_previsto > 500 THEN 'alto'
+                WHEN p.frp_previsto IS NOT NULL AND p.frp_previsto >= 50 THEN 'moderado'
+                WHEN p.frp_previsto IS NOT NULL THEN 'leve'
+                WHEN LOWER(TRIM(COALESCE(p.classe_prevista, ''))) IN ('medio', 'moderado') THEN 'moderado'
+                WHEN LOWER(TRIM(COALESCE(p.classe_prevista, ''))) IN ('baixo', 'leve', 'controlado') THEN 'leve'
                 WHEN TRIM(COALESCE(p.classe_prevista, '')) = '' THEN NULL
                 ELSE LOWER(p.classe_prevista)
               END,
@@ -423,9 +442,11 @@ export const getOrgaosAnalytics = async (_req, res, next) => {
             SELECT
               prob_incendio,
               CASE
-                WHEN prob_incendio IS NOT NULL AND prob_incendio >= 0.7 THEN 'alto'
-                WHEN prob_incendio IS NOT NULL AND prob_incendio >= 0.4 THEN 'medio'
-                WHEN prob_incendio IS NOT NULL THEN 'controlado'
+                WHEN frp_previsto IS NOT NULL AND frp_previsto > 500 THEN 'alto'
+                WHEN frp_previsto IS NOT NULL AND frp_previsto >= 50 THEN 'moderado'
+                WHEN frp_previsto IS NOT NULL THEN 'leve'
+                WHEN LOWER(TRIM(COALESCE(classe_prevista, ''))) IN ('medio', 'moderado') THEN 'moderado'
+                WHEN LOWER(TRIM(COALESCE(classe_prevista, ''))) IN ('baixo', 'leve', 'controlado') THEN 'leve'
                 WHEN TRIM(COALESCE(classe_prevista, '')) = '' THEN NULL
                 ELSE LOWER(classe_prevista)
               END AS classe_prevista,

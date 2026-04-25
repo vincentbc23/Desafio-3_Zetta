@@ -38,7 +38,6 @@ const chartFiles: ChartDefinition[] = [
   { id: 'mes', filename: 'registros_historicos_mes.json', fallbackTitle: 'Registros Historicos por Mes' },
   { id: 'ano', filename: 'registros_historicos_ano.json', fallbackTitle: 'Registros Historicos por Ano' },
   { id: 'hora', filename: 'registros_historicos_hora.json', fallbackTitle: 'Registros por Hora' },
-  { id: 'variacao-frp', filename: 'variacao_frp_mes.json', fallbackTitle: 'Variacao de FRP por Mes' },
   { id: 'frp-hora', filename: 'frp_hora.json', fallbackTitle: 'FRP por Hora' },
   { id: 'frp-temp', filename: 'FRP_temperatura.json', fallbackTitle: 'FRP x Temperatura' },
   { id: 'frp-vento', filename: 'frp_vento.json', fallbackTitle: 'FRP x Vento' },
@@ -311,13 +310,13 @@ export default function Orgaos() {
   return (
     <div className="min-h-screen bg-[#0A1929] text-[#F2F2F7]">
       <div className="bg-[#1C1C1E]/90 backdrop-blur-md border-b border-white/10 sticky top-0 z-40">
-        <div className="max-w-[1600px] mx-auto px-8 py-4 flex items-center justify-between gap-4">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Sala de Analise dos Orgaos</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">Sala de Analise dos Orgaos</h1>
             <p className="text-sm text-gray-400">Visualizacoes renderizadas direto dos JSON da pasta graficos</p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex w-full lg:w-auto flex-wrap items-center gap-2 sm:gap-3">
             {updatedAt && <span className="text-xs text-gray-300">Atualizado: {new Date(updatedAt).toLocaleString('pt-BR')}</span>}
 
             <button
@@ -349,7 +348,7 @@ export default function Orgaos() {
         </div>
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-8 py-8 space-y-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
         {usuario && (
           <div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl px-4 py-3 text-sm text-gray-200">
             Sessao ativa: {usuario.name} ({usuario.email})
@@ -358,7 +357,7 @@ export default function Orgaos() {
 
         {errorMessage && <div className="bg-[#FF3B30]/10 border border-[#FF3B30]/40 rounded-lg p-4 text-sm">{errorMessage}</div>}
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
           <motion.div className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-center gap-3 mb-2">
               <Flame className="w-5 h-5 text-[#FF3B30]" />
@@ -386,17 +385,17 @@ export default function Orgaos() {
         </div>
 
         {mainHistoricalChart && (
-          <section className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6 lg:p-8">
+          <section className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-5">
               <h3 className="font-semibold text-lg">{extractTitle(mainHistoricalChart)}</h3>
               <p className="text-xs text-gray-400">Visualizacao ampliada para apoiar comparacao entre municipios.</p>
             </div>
-            <PlotlyPanel chart={mainHistoricalChart} heightClass="h-[420px] lg:h-[560px]" />
+            <PlotlyPanel chart={mainHistoricalChart} heightClass="h-[300px] sm:h-[420px] lg:h-[560px]" />
           </section>
         )}
 
         {(monthlyChart || yearlyChart) && (
-          <section className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6 lg:p-8">
+          <section className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-4 sm:p-6 lg:p-8">
             <div className="mb-5">
               <h3 className="font-semibold text-lg">Evolucao Temporal dos Registros</h3>
               <p className="text-xs text-gray-400 mt-1">Mes e ano na mesma secao para facilitar leitura de tendencia e sazonalidade.</p>
@@ -406,14 +405,14 @@ export default function Orgaos() {
               {monthlyChart && (
                 <div className="bg-black/10 border border-white/10 rounded-lg p-4">
                   <h4 className="font-medium mb-3 text-sm">{extractTitle(monthlyChart)}</h4>
-                  <PlotlyPanel chart={monthlyChart} heightClass="h-[320px] lg:h-[360px]" />
+                  <PlotlyPanel chart={monthlyChart} heightClass="h-[280px] sm:h-[320px] lg:h-[360px]" />
                 </div>
               )}
 
               {yearlyChart && (
                 <div className="bg-black/10 border border-white/10 rounded-lg p-4">
                   <h4 className="font-medium mb-3 text-sm">{extractTitle(yearlyChart)}</h4>
-                  <PlotlyPanel chart={yearlyChart} heightClass="h-[320px] lg:h-[360px]" />
+                  <PlotlyPanel chart={yearlyChart} heightClass="h-[280px] sm:h-[320px] lg:h-[360px]" />
                 </div>
               )}
             </div>
@@ -421,7 +420,7 @@ export default function Orgaos() {
         )}
 
         {(mapDensityChart || mapRecordsChart) && (
-          <section className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-6 lg:p-8">
+          <section className="bg-[#1C1C1E]/80 border border-white/10 rounded-xl p-4 sm:p-6 lg:p-8">
             <div className="mb-5">
               <h3 className="font-semibold text-lg">Mapas de Monitoramento</h3>
               <p className="text-xs text-gray-400 mt-1">Visualizacao ampliada para leitura espacial de densidade e distribuicao de registros.</p>
@@ -431,14 +430,14 @@ export default function Orgaos() {
               {mapDensityChart && (
                 <div className="bg-black/10 border border-white/10 rounded-lg p-4">
                   <h4 className="font-medium mb-3 text-sm">{extractTitle(mapDensityChart)}</h4>
-                  <PlotlyPanel chart={mapDensityChart} heightClass="h-[420px] lg:h-[560px]" />
+                  <PlotlyPanel chart={mapDensityChart} heightClass="h-[300px] sm:h-[420px] lg:h-[560px]" />
                 </div>
               )}
 
               {mapRecordsChart && (
                 <div className="bg-black/10 border border-white/10 rounded-lg p-4">
                   <h4 className="font-medium mb-3 text-sm">{extractTitle(mapRecordsChart)}</h4>
-                  <PlotlyPanel chart={mapRecordsChart} heightClass="h-[420px] lg:h-[560px]" />
+                  <PlotlyPanel chart={mapRecordsChart} heightClass="h-[300px] sm:h-[420px] lg:h-[560px]" />
                 </div>
               )}
             </div>

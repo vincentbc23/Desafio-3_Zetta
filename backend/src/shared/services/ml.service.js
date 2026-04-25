@@ -1,4 +1,5 @@
 import { env } from '../config/env.js';
+import { classifyRiskByFrp } from './frp-classification.js';
 
 // 1. Prepara as variáveis para enviar. 
 // AVISO: Os nomes dessas chaves DEVEM ser idênticos às colunas que o modelo espera no features_fogo.pkl
@@ -14,21 +15,7 @@ const getFeaturePayload = (features) => ({
   Longitude: Number(features.Longitude),
 });
 
-const classifyRiskByFrp = (frpValue) => {
-  if (!Number.isFinite(frpValue)) {
-    return 'indefinido';
-  }
-
-  if (frpValue < 50) {
-    return 'baixo';
-  }
-
-  if (frpValue <= 500) {
-    return 'moderado';
-  }
-
-  return 'alto';
-};
+export { classifyRiskByFrp };
 
 // 2. Mapeia a resposta da API Python para o formato que o Backend Node espera
 const mapApiPrediction = (payload) => {

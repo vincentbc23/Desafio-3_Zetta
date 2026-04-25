@@ -9,7 +9,6 @@ import {
   Clock,
   Users,
   Radio,
-  CheckCircle,
   AlertCircle,
   LogOut,
   TrendingUp,
@@ -218,7 +217,7 @@ export default function Painel() {
     return filtroAlerta === 'TODOS'
       ? alertasPrioritarios
       : alertasPrioritarios.filter((alerta) => alerta.tipo === filtroAlerta);
-  }, [filtroAlerta]);
+  }, [filtroAlerta, alertasPrioritarios]);
 
   if (isAuthenticating) {
     return (
@@ -238,7 +237,7 @@ export default function Painel() {
   return (
     <div className="min-h-screen bg-[#0A1929]">
       <div className="bg-[#1C1C1E]/90 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
-        <div className="max-w-[1600px] mx-auto px-8 py-4 flex items-center justify-between gap-4">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-[#FF3B30] to-[#FF6A00] rounded-lg">
               <Shield className="w-6 h-6 text-white" />
@@ -249,9 +248,9 @@ export default function Painel() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex w-full lg:w-auto flex-wrap items-center gap-2 sm:gap-3 lg:gap-4">
             {usuario && (
-              <div className="hidden md:block text-right">
+              <div className="hidden sm:block text-right lg:mr-1">
                 <p className="text-sm font-medium text-[#F2F2F7]">{usuario.name}</p>
                 <p className="text-xs text-gray-400">{usuario.email}</p>
               </div>
@@ -260,22 +259,22 @@ export default function Painel() {
             <motion.div
               animate={{ opacity: [1, 0.5, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
-              className="flex items-center gap-2 bg-[#34C759]/20 px-4 py-2 rounded-lg border border-[#34C759]/50"
+              className="flex items-center gap-2 bg-[#34C759]/20 px-3 py-2 rounded-lg border border-[#34C759]/50"
             >
               <Activity className="w-4 h-4 text-[#34C759]" />
-              <span className="text-sm text-[#34C759] font-medium">Sistema Ativo</span>
+              <span className="text-xs sm:text-sm text-[#34C759] font-medium">Sistema Ativo</span>
             </motion.div>
 
             <button
               onClick={() => navigate('/orgaos')}
-              className="px-3 py-2 rounded-lg border border-white/20 text-sm text-[#F2F2F7] hover:bg-[#2A2A2C] transition-colors"
+              className="px-3 py-2 rounded-lg border border-white/20 text-xs sm:text-sm text-[#F2F2F7] hover:bg-[#2A2A2C] transition-colors"
             >
               Análise de Órgãos
             </button>
 
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 text-gray-400 hover:text-[#F2F2F7] transition-colors"
+              className="flex items-center gap-2 text-gray-400 hover:text-[#F2F2F7] transition-colors text-sm"
             >
               <LogOut className="w-5 h-5" />
               <span>Sair</span>
@@ -284,12 +283,12 @@ export default function Painel() {
         </div>
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-8 py-8">
-        <div className="grid grid-cols-4 gap-6 mb-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-br from-[#FF3B30] to-[#FF6A00] p-6 rounded-xl shadow-lg"
+            className="bg-gradient-to-br from-[#FF3B30] to-[#FF6A00] p-5 sm:p-6 rounded-xl shadow-lg"
           >
             <div className="flex items-center justify-between mb-2">
               <AlertTriangle className="w-8 h-8 text-white" />
@@ -303,7 +302,7 @@ export default function Painel() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-[#1C1C1E]/80 backdrop-blur-md border border-white/10 p-6 rounded-xl"
+            className="bg-[#1C1C1E]/80 backdrop-blur-md border border-white/10 p-5 sm:p-6 rounded-xl"
           >
             <div className="flex items-center justify-between mb-2">
               <Users className="w-8 h-8 text-[#34C759]" />
@@ -317,7 +316,7 @@ export default function Painel() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-[#1C1C1E]/80 backdrop-blur-md border border-white/10 p-6 rounded-xl"
+            className="bg-[#1C1C1E]/80 backdrop-blur-md border border-white/10 p-5 sm:p-6 rounded-xl"
           >
             <div className="flex items-center justify-between mb-2">
               <Clock className="w-8 h-8 text-[#FF9500]" />
@@ -331,7 +330,7 @@ export default function Painel() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-[#1C1C1E]/80 backdrop-blur-md border border-white/10 p-6 rounded-xl"
+            className="bg-[#1C1C1E]/80 backdrop-blur-md border border-white/10 p-5 sm:p-6 rounded-xl"
           >
             <div className="flex items-center justify-between mb-2">
               <TrendingUp className="w-8 h-8 text-[#34C759]" />
@@ -346,40 +345,40 @@ export default function Painel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-gradient-to-r from-[#FF3B30] to-[#FF6A00] rounded-xl p-6 mb-8 cursor-pointer"
+          className="bg-gradient-to-r from-[#FF3B30] to-[#FF6A00] rounded-xl p-4 sm:p-6 mb-8 cursor-pointer"
           onClick={() => navigate('/dados')}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="bg-white/20 backdrop-blur-sm p-4 rounded-lg">
-                <TrendingUp className="w-8 h-8 text-white" />
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="bg-white/20 backdrop-blur-sm p-3 sm:p-4 rounded-lg">
+                <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
               </div>
               <div>
-                <h3 className="text-white text-xl font-bold mb-1">Dados e Estatísticas Completas</h3>
-                <p className="text-white/90 text-sm">Acesse análises detalhadas, gráficos e relatórios de incêndios</p>
+                <h3 className="text-white text-lg sm:text-xl font-bold mb-1">Dados e Estatísticas Completas</h3>
+                <p className="text-white/90 text-xs sm:text-sm">Acesse análises detalhadas, gráficos e relatórios de incêndios</p>
               </div>
             </div>
-            <div className="text-white text-2xl">→</div>
+            <div className="text-white text-xl sm:text-2xl hidden md:block">→</div>
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-3 gap-8">
-          <div className="col-span-2">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
+          <div className="xl:col-span-2">
             <div className="bg-[#1C1C1E]/80 backdrop-blur-md border border-white/10 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <div className="flex items-center gap-3">
                   <Bell className="w-6 h-6 text-[#FF3B30]" />
                   <h2 className="text-xl font-bold text-[#F2F2F7]">Alertas Prioritários</h2>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 overflow-x-auto pb-1">
                   {['TODOS', 'ALTO', 'MODERADO', 'LEVE'].map((tipo) => (
                     <button
                       key={tipo}
                       onClick={() => setFiltroAlerta(tipo)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all shrink-0 ${
                         filtroAlerta === tipo
                           ? 'bg-[#FF3B30] text-white'
                           : 'bg-[#2C2C2E] text-gray-400 hover:bg-[#3C3C3E]'
@@ -391,7 +390,7 @@ export default function Painel() {
                 </div>
               </div>
 
-              <div className="space-y-4 max-h-[600px] overflow-y-auto">
+              <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
                 {alertasErro && (
                   <div className="bg-[#FF3B30]/10 border border-[#FF3B30]/40 rounded-lg p-4 text-sm text-[#F2F2F7]">
                     {alertasErro}
@@ -413,7 +412,7 @@ export default function Painel() {
                     className="bg-[#2C2C2E] border-l-4 rounded-lg p-5"
                     style={{ borderColor: alerta.cor }}
                   >
-                    <div className="flex items-start justify-between mb-3">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
                       <div className="flex items-center gap-3">
                         <span
                           className="px-3 py-1 rounded-full text-xs font-bold text-white"
@@ -426,7 +425,7 @@ export default function Painel() {
                       <span className="text-gray-400 text-sm whitespace-nowrap ml-4">{alerta.tempo}</span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 text-sm">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-gray-400" />
                         <span className="text-gray-300">{alerta.localizacao}</span>
@@ -438,15 +437,14 @@ export default function Painel() {
                       <div className="flex items-center gap-2">
                         {alerta.status === 'EM ANDAMENTO' && <AlertCircle className="w-4 h-4 text-[#FF3B30]" />}
                         {alerta.status === 'RESPONDENDO' && <Radio className="w-4 h-4 text-[#FF9500]" />}
-                        {alerta.status === 'CONTROLADO' && <CheckCircle className="w-4 h-4 text-[#34C759]" />}
                         {alerta.status === 'MONITORANDO' && <Clock className="w-4 h-4 text-[#FFCC00]" />}
                         <span className="text-gray-300">{alerta.status}</span>
                       </div>
                     </div>
 
-                    <div className="mt-4 rounded-lg border border-[#FF9500]/40 bg-[#FF9500]/10 px-4 py-3">
+                    <div className="mt-4 rounded-lg border border-[#FF9500]/40 bg-[#FF9500]/10 px-3 sm:px-4 py-3">
                       <p className="text-xs uppercase tracking-wide text-[#FF9500]">Provavel intensidade do fogo</p>
-                      <p className="text-2xl font-extrabold text-[#F2F2F7] mt-1">{alerta.intensidadeProvavel}</p>
+                      <p className="text-xl sm:text-2xl font-extrabold text-[#F2F2F7] mt-1 break-words">{alerta.intensidadeProvavel}</p>
                     </div>
 
                     <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">

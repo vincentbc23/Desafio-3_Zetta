@@ -173,14 +173,9 @@ export default function Mapa() {
 
   const marcadores: IncendioMarcador[] = (data?.ultimosReportes ?? [])
     .map((reporte) => {
-      const prob = Number(reporte.prob_incendio ?? 0);
-      const classe = (reporte.classe_prevista || '').toLowerCase();
+      const frp = Number(reporte.frp_previsto ?? 0);
       const risco: IncendioMarcador['risco'] =
-        classe === 'alto' || prob >= 0.7
-          ? 'alto'
-          : classe === 'medio' || prob >= 0.4
-          ? 'medio'
-          : 'controlado';
+        frp > 500 ? 'alto' : frp >= 50 ? 'medio' : 'controlado';
 
       return {
         id: reporte.id,

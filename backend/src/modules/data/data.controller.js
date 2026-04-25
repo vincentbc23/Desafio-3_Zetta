@@ -33,7 +33,7 @@ export const getCards = async (_req, res, next) => {
           SELECT
             COUNT(DISTINCT p.report_id)::int AS high_risk_reports
           FROM predictions p
-          WHERE p.prob_incendio >= 0.7 OR LOWER(COALESCE(p.classe_prevista, '')) = 'alto'
+          WHERE COALESCE(p.frp_previsto, 0) > 500
         `
       ),
     ]);
@@ -428,7 +428,7 @@ export const getOrgaosAnalytics = async (_req, res, next) => {
         SELECT
           COUNT(DISTINCT p.report_id)::int AS high_risk_reports
         FROM predictions p
-        WHERE p.prob_incendio >= 0.7 OR LOWER(COALESCE(p.classe_prevista, '')) = 'alto'
+        WHERE COALESCE(p.frp_previsto, 0) > 500
       `
     );
 

@@ -33,7 +33,7 @@ type ApiAlerta = {
 
 type AlertaPainel = {
   id: number;
-  tipo: 'CRÍTICO' | 'URGENTE' | 'MODERADO';
+  tipo: 'ALTO' | 'MODERADO' | 'LEVE';
   descricao: string;
   localizacao: string;
   status: 'EM ANDAMENTO' | 'RESPONDENDO' | 'MONITORANDO';
@@ -59,23 +59,22 @@ const formatTempoRelativo = (createdAt: string) => {
   return minutes > 0 ? `${hours}h ${minutes}min atrás` : `${hours}h atrás`;
 };
 
-const classifyAlert = (probIncendio: number | null, classePrevista: string | null): AlertaPainel['tipo'] => {
-  const classe = (classePrevista || '').toLowerCase();
-  const prob = Number(probIncendio || 0);
+const classifyAlert = (frpPrevisto: number | null): AlertaPainel['tipo'] => {
+  const frp = Number(frpPrevisto);
 
-  if (classe === 'alto' || prob >= 0.7) {
-    return 'CRÍTICO';
+  if (Number.isFinite(frp) && frp > 500) {
+    return 'ALTO';
   }
 
-  if (classe === 'medio' || prob >= 0.4) {
-    return 'URGENTE';
+  if (Number.isFinite(frp) && frp >= 50) {
+    return 'MODERADO';
   }
 
-  return 'MODERADO';
+  return 'LEVE';
 };
 
 const buildAlertaPainel = (item: ApiAlerta): AlertaPainel => {
-  const tipo = classifyAlert(item.prob_incendio, item.classe_prevista);
+  const tipo = classifyAlert(item.frp_previsto);
   const lat = typeof item.latitude === 'number' ? item.latitude.toFixed(4) : 'N/A';
   const lon = typeof item.longitude === 'number' ? item.longitude.toFixed(4) : 'N/A';
   const intensidadeProvavel =
@@ -88,12 +87,12 @@ const buildAlertaPainel = (item: ApiAlerta): AlertaPainel => {
     tipo,
     descricao: item.description || 'Reporte de foco de incendio',
     localizacao: `Coordenadas (${lat}, ${lon})`,
-    status: tipo === 'CRÍTICO' ? 'EM ANDAMENTO' : tipo === 'URGENTE' ? 'RESPONDENDO' : 'MONITORANDO',
+    status: tipo === 'ALTO' ? 'EM ANDAMENTO' : tipo === 'MODERADO' ? 'RESPONDENDO' : 'MONITORANDO',
     tempo: formatTempoRelativo(item.created_at),
     recursos:
-      tipo === 'CRÍTICO'
+      tipo === 'ALTO'
         ? '4 viaturas, 2 aeronaves'
-        : tipo === 'URGENTE'
+        : tipo === 'MODERADO'
           ? '2 viaturas em deslocamento'
           : '1 viatura em observação',
     intensidadeProvavel,
@@ -109,7 +108,7 @@ const buildAlertaPainel = (item: ApiAlerta): AlertaPainel => {
       typeof item.vento_ms === 'number'
         ? `${item.vento_ms.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} m/s`
         : 'Nao informado',
-    cor: tipo === 'CRÍTICO' ? '#FF3B30' : tipo === 'URGENTE' ? '#FF9500' : '#FFCC00',
+    cor: tipo === 'ALTO' ? '#FF3B30' : tipo === 'MODERADO' ? '#FF9500' : '#34C759',
   };
 };
 
@@ -376,7 +375,7 @@ export default function Painel() {
                 </div>
 
                 <div className="flex gap-2">
-                  {['TODOS', 'CRÍTICO', 'URGENTE', 'MODERADO'].map((tipo) => (
+                  {['TODOS', 'ALTO', 'MODERADO', 'LEVE'].map((tipo) => (
                     <button
                       key={tipo}
                       onClick={() => setFiltroAlerta(tipo)}

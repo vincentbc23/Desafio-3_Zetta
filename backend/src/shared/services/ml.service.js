@@ -14,23 +14,40 @@ const getFeaturePayload = (features) => ({
   Longitude: Number(features.Longitude),
 });
 
+const classifyRiskByFrp = (frpValue) => {
+  if (!Number.isFinite(frpValue)) {
+    return 'indefinido';
+  }
+
+  if (frpValue < 50) {
+    return 'baixo';
+  }
+
+  if (frpValue <= 500) {
+    return 'moderado';
+  }
+
+  return 'alto';
+};
+
 // 2. Mapeia a resposta da API Python para o formato que o Backend Node espera
 const mapApiPrediction = (payload) => {
-  
+
   const probIncendio = Number(payload?.prob_incendio || 0); // Se o modelo não tiver .predict_proba, pode ser 0
-  const classePrevista = payload?.classe_prevista || payload?.classificacao_fogo;
   const frpPrevisto = Number(payload?.frp_previsto || payload?.intensidade_frp);
 
-  if (classePrevista === undefined || !Number.isFinite(frpPrevisto)) {
+  if (!Number.isFinite(frpPrevisto)) {
     throw new Error('A API de ML retornou um payload de predição inválido ou incompleto.');
   }
 
+  const classePrevista = classifyRiskByFrp(frpPrevisto);
+
   return {
-    
+
     modelName: payload?.debug_info?.modelo_classificador || 'api-cerrado-ml',
     modelVersion: '1.0.0',
     probIncendio,
-    classePrevista: String(classePrevista),
+    classePrevista,
     frpPrevisto,
     source: 'api',
   };

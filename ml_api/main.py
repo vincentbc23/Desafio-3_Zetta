@@ -39,6 +39,20 @@ def predict_fogo(payload: IngestaoDados):
         # Executa as predições
         pred_class = classificador.predict(df_input)[0]
         pred_frp = regressor.predict(df_input)[0]
+        prob_incendio = None
+
+        # Se o modelo suportar probabilidades, retorna também uma "probabilidade de incêndio".
+        # - Binário: usa a probabilidade da classe 1 (se existir).
+        # - Multiclasse: usa a probabilidade máxima (confiança da predição).
+        if hasattr(classificador, "predict_proba"):
+            proba = classificador.predict_proba(df_input)[0]
+            classes = list(getattr(classificador, "classes_", []))
+
+            if len(proba) > 0:
+                if 1 in classes:
+                    prob_incendio = float(proba[classes.index(1)])
+                else:
+                    prob_incendio = float(max(proba))
 
         # Executa as predições
         print(">> [API] Dados recebidos. Repassando para o modelo...")
@@ -51,6 +65,7 @@ def predict_fogo(payload: IngestaoDados):
         
         return {
             "status": "sucesso",
+            "prob_incendio": prob_incendio,
             "classificacao_fogo": int(pred_class),
             "intensidade_frp": float(pred_frp)
         }

@@ -90,13 +90,7 @@ export const getDados = async (_req, res, next) => {
       query(
         `
           SELECT
-            CASE
-              WHEN ABS(r.latitude) <= 2 AND ABS(r.longitude) <= 2 THEN 'Centro'
-              WHEN r.latitude >= 0 AND r.longitude >= 0 THEN 'Norte'
-              WHEN r.latitude < 0 AND r.longitude >= 0 THEN 'Leste'
-              WHEN r.latitude < 0 AND r.longitude < 0 THEN 'Sul'
-              ELSE 'Oeste'
-            END AS nome,
+            COALESCE(NULLIF(r.regiao_mg, ''), 'Não classificada') AS nome,
             COUNT(*)::int AS incendios
           FROM reports r
           GROUP BY 1
@@ -116,7 +110,16 @@ export const getDados = async (_req, res, next) => {
       query(
         `
           SELECT
-            COALESCE(LOWER(p.classe_prevista), 'indefinido') AS nome,
+            COALESCE(
+              CASE
+                WHEN p.prob_incendio IS NOT NULL AND p.prob_incendio >= 0.7 THEN 'alto'
+                WHEN p.prob_incendio IS NOT NULL AND p.prob_incendio >= 0.4 THEN 'medio'
+                WHEN p.prob_incendio IS NOT NULL THEN 'controlado'
+                WHEN TRIM(COALESCE(p.classe_prevista, '')) = '' THEN NULL
+                ELSE LOWER(p.classe_prevista)
+              END,
+              'indefinido'
+            ) AS nome,
             COUNT(*)::int AS valor
           FROM predictions p
           GROUP BY 1
@@ -133,6 +136,7 @@ export const getDados = async (_req, res, next) => {
             r.accuracy_meters,
             r.location_source,
             r.location_confirmed,
+            r.regiao_mg,
             r.created_at,
             wf.temperatura_c,
             wf.umidade_relativa_pct,
@@ -145,7 +149,13 @@ export const getDados = async (_req, res, next) => {
           LEFT JOIN LATERAL (
             SELECT
               prob_incendio,
-              classe_prevista,
+              CASE
+                WHEN prob_incendio IS NOT NULL AND prob_incendio >= 0.7 THEN 'alto'
+                WHEN prob_incendio IS NOT NULL AND prob_incendio >= 0.4 THEN 'medio'
+                WHEN prob_incendio IS NOT NULL THEN 'controlado'
+                WHEN TRIM(COALESCE(classe_prevista, '')) = '' THEN NULL
+                ELSE LOWER(classe_prevista)
+              END AS classe_prevista,
               frp_previsto,
               created_at
             FROM predictions
@@ -203,13 +213,7 @@ export const getOrgaosAnalytics = async (_req, res, next) => {
       query(
         `
           SELECT
-            CASE
-              WHEN ABS(r.latitude) <= 2 AND ABS(r.longitude) <= 2 THEN 'Centro'
-              WHEN r.latitude >= 0 AND r.longitude >= 0 THEN 'Norte'
-              WHEN r.latitude < 0 AND r.longitude >= 0 THEN 'Leste'
-              WHEN r.latitude < 0 AND r.longitude < 0 THEN 'Sul'
-              ELSE 'Oeste'
-            END AS nome,
+            COALESCE(NULLIF(r.regiao_mg, ''), 'Não classificada') AS nome,
             COUNT(*)::int AS ocorrencias
           FROM reports r
           GROUP BY 1
@@ -219,7 +223,16 @@ export const getOrgaosAnalytics = async (_req, res, next) => {
       query(
         `
           SELECT
-            COALESCE(LOWER(p.classe_prevista), 'indefinido') AS nome,
+            COALESCE(
+              CASE
+                WHEN p.prob_incendio IS NOT NULL AND p.prob_incendio >= 0.7 THEN 'alto'
+                WHEN p.prob_incendio IS NOT NULL AND p.prob_incendio >= 0.4 THEN 'medio'
+                WHEN p.prob_incendio IS NOT NULL THEN 'controlado'
+                WHEN TRIM(COALESCE(p.classe_prevista, '')) = '' THEN NULL
+                ELSE LOWER(p.classe_prevista)
+              END,
+              'indefinido'
+            ) AS nome,
             COUNT(*)::int AS valor
           FROM predictions p
           GROUP BY 1
@@ -396,6 +409,7 @@ export const getOrgaosAnalytics = async (_req, res, next) => {
             r.latitude,
             r.longitude,
             r.description,
+            r.regiao_mg,
             r.created_at,
             wf.temperatura_c,
             wf.umidade_relativa_pct,
@@ -408,7 +422,13 @@ export const getOrgaosAnalytics = async (_req, res, next) => {
           LEFT JOIN LATERAL (
             SELECT
               prob_incendio,
-              classe_prevista,
+              CASE
+                WHEN prob_incendio IS NOT NULL AND prob_incendio >= 0.7 THEN 'alto'
+                WHEN prob_incendio IS NOT NULL AND prob_incendio >= 0.4 THEN 'medio'
+                WHEN prob_incendio IS NOT NULL THEN 'controlado'
+                WHEN TRIM(COALESCE(classe_prevista, '')) = '' THEN NULL
+                ELSE LOWER(classe_prevista)
+              END AS classe_prevista,
               frp_previsto,
               created_at
             FROM predictions

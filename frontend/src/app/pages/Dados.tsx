@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Header } from '../components/Header';
 import { Clock, MapPin, TrendingUp, RefreshCw } from 'lucide-react';
 import { useApi } from '../api/useApi';
@@ -41,6 +41,16 @@ const corClasse = (classe: string) => {
   }
 
   return '#34C759';
+};
+
+const labelClasse = (classe: string) => {
+  const normalized = classe.toLowerCase();
+  if (normalized === 'medio') return 'Médio';
+  if (normalized === 'alto') return 'Alto';
+  if (normalized === 'baixo') return 'Baixo';
+  if (normalized === 'controlado') return 'Controlado';
+  if (normalized === 'indefinido') return 'Indefinido';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 };
 
 // Componente customizado para tooltip
@@ -203,7 +213,14 @@ export default function Dados() {
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={dadosRegiao}>
                 <CartesianGrid key="grid-bar" strokeDasharray="3 3" stroke="#2A2A2A" />
-                <XAxis key="xaxis-bar" dataKey="nome" stroke="#F2F2F7" />
+                <XAxis
+                  key="xaxis-bar"
+                  dataKey="nome"
+                  stroke="#F2F2F7"
+                  tick={false}
+                  tickLine={false}
+                  axisLine={false}
+                />
                 <YAxis key="yaxis-bar" stroke="#F2F2F7" />
                 <Tooltip key="tooltip-bar" content={<CustomTooltip />} />
                 <Bar
@@ -235,14 +252,21 @@ export default function Dados() {
                   cx="50%"
                   cy="50%"
                   outerRadius={100}
-                  label={(entry) => `${entry.nome}: ${entry.valor}`}
-                  labelStyle={{ fill: '#F2F2F7', fontSize: '12px', fontWeight: 600 }}
+                  labelLine={false}
+                  label={({ name, value }) => `${labelClasse(String(name ?? ''))}: ${value ?? 0}`}
                 >
                   {dadosTipo.map((entry) => (
                     <Cell key={`cell-${entry.id}`} fill={entry.cor} />
                   ))}
                 </Pie>
                 <Tooltip key="tooltip-pie" content={<CustomTooltip />} />
+                <Legend
+                  formatter={(value) => (
+                    <span className="text-[#F2F2F7] text-sm font-semibold">
+                      {labelClasse(String(value))}
+                    </span>
+                  )}
+                />
               </PieChart>
             </ResponsiveContainer>
           </motion.div>

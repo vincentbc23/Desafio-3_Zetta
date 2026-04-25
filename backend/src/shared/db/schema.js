@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS reports (
   accuracy_meters DOUBLE PRECISION,
   location_source TEXT NOT NULL DEFAULT 'gps',
   location_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
+  regiao_mg TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -84,7 +85,27 @@ ALTER TABLE reports
   ADD COLUMN IF NOT EXISTS description TEXT,
   ADD COLUMN IF NOT EXISTS accuracy_meters DOUBLE PRECISION,
   ADD COLUMN IF NOT EXISTS location_source TEXT NOT NULL DEFAULT 'gps',
-  ADD COLUMN IF NOT EXISTS location_confirmed BOOLEAN NOT NULL DEFAULT FALSE;
+  ADD COLUMN IF NOT EXISTS location_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS regiao_mg TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_reports_regiao_mg ON reports(regiao_mg);
+
+UPDATE reports
+SET regiao_mg = CASE
+  WHEN latitude IS NULL OR longitude IS NULL THEN 'Não classificada'
+  WHEN latitude < -22.95 OR latitude > -14.1 OR longitude < -51.3 OR longitude > -39.7 THEN 'Fora de Minas Gerais'
+  WHEN latitude <= -21.2 AND longitude < -44.8 THEN 'Sul/Sudoeste de Minas'
+  WHEN latitude <= -21.2 AND longitude >= -44.8 THEN 'Zona da Mata/Campo das Vertentes'
+  WHEN latitude > -19.6 AND longitude <= -47.0 THEN 'Triângulo Mineiro/Alto Paranaíba'
+  WHEN latitude > -18.2 AND longitude <= -45.3 THEN 'Noroeste de Minas'
+  WHEN latitude > -18.2 AND longitude > -45.3 THEN 'Norte de Minas'
+  WHEN latitude > -20.4 AND latitude <= -18.2 AND longitude > -44.0 THEN 'Vale do Jequitinhonha/Mucuri'
+  WHEN latitude > -20.4 AND latitude <= -18.2 AND longitude <= -44.0 THEN 'Central Mineira'
+  WHEN latitude <= -20.4 AND longitude <= -45.0 THEN 'Oeste de Minas'
+  WHEN latitude <= -20.4 AND longitude > -45.0 AND longitude <= -43.5 THEN 'Região Metropolitana de BH'
+  ELSE 'Zona da Mata/Campo das Vertentes'
+END
+WHERE regiao_mg IS NULL;
 
 ALTER TABLE weather_features
   ADD COLUMN IF NOT EXISTS description TEXT;

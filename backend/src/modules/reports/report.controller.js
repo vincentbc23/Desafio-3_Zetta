@@ -1,6 +1,7 @@
 import { withTransaction } from '../../shared/db/client.js';
 import { collectWeatherFeatures } from '../../shared/services/weather.service.js';
 import { predictFireRisk } from '../../shared/services/ml.service.js';
+import { classifyMgRegion } from '../../shared/services/mg-region.service.js';
 
 const validateCoordinates = (latitude, longitude) => {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
@@ -77,15 +78,16 @@ export const ingestReport = async (req, res, next) => {
     const features = await collectWeatherFeatures(latitude, longitude);
     const modelFeatures = normalizeFeatures(features);
     const prediction = await predictFireRisk(modelFeatures);
+    const regiaoMg = classifyMgRegion(latitude, longitude);
 
     const report = await withTransaction(async (client) => {
       const reportResult = await client.query(
         `
-          INSERT INTO reports (latitude, longitude, description, accuracy_meters, location_source, location_confirmed)
-          VALUES ($1, $2, $3, $4, $5, $6)
-          RETURNING id, created_at, description, accuracy_meters, location_source, location_confirmed
+          INSERT INTO reports (latitude, longitude, description, accuracy_meters, location_source, location_confirmed, regiao_mg)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id, created_at, description, accuracy_meters, location_source, location_confirmed, regiao_mg
         `,
-        [latitude, longitude, description, accuracyMeters, locationSource, locationConfirmed]
+        [latitude, longitude, description, accuracyMeters, locationSource, locationConfirmed, regiaoMg]
       );
 
       const insertedReport = reportResult.rows[0];
@@ -159,6 +161,7 @@ export const ingestReport = async (req, res, next) => {
       location: {
         latitude,
         longitude,
+        regiaoMg: report.regiao_mg,
         description: report.description,
         accuracyMeters: report.accuracy_meters,
         source: report.location_source,

@@ -23,11 +23,16 @@ interface IncendioMarcador {
   ventoMs: number;
   temperaturaC: number;
   umidadePct: number;
+  regiaoMg: string;
   localizacao: string;
 }
 
 
 interface DadosMapaResponse {
+  porRegiao?: Array<{
+    nome: string;
+    incendios: number;
+  }>;
   ultimosReportes: Array<{
     id: string;
     latitude: number;
@@ -36,6 +41,7 @@ interface DadosMapaResponse {
     accuracy_meters: number | null;
     location_source: string | null;
     location_confirmed: boolean | null;
+    regiao_mg: string | null;
     created_at: string;
     temperatura_c: number | null;
     umidade_relativa_pct: number | null;
@@ -161,14 +167,18 @@ export default function Mapa() {
     apiConfig.refreshIntervalMs
   );
 
+  const normalizeRegionKey = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
 
-  const getRegiao = (lat: number, lng: number) => {
-    if (Math.abs(lat) <= 2 && Math.abs(lng) <= 2) return 'centro';
-    if (lat >= 0 && lng >= 0) return 'norte';
-    if (lat < 0 && lng >= 0) return 'leste';
-    if (lat < 0 && lng < 0) return 'sul';
-    return 'oeste';
-  };
+  const regiaoOptions = (data?.porRegiao ?? [])
+    .map((item) => item.nome)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
 
   const marcadores: IncendioMarcador[] = (data?.ultimosReportes ?? [])
@@ -193,13 +203,16 @@ export default function Mapa() {
         ventoMs: Number(reporte.vento_ms ?? 0),
         temperaturaC: Number(reporte.temperatura_c ?? 0),
         umidadePct: Number(reporte.umidade_relativa_pct ?? 0),
-        localizacao: `${Number(reporte.latitude).toFixed(4)}, ${Number(reporte.longitude).toFixed(4)}`,
+        regiaoMg: reporte.regiao_mg || 'Não classificada',
+        localizacao: `${
+          reporte.regiao_mg ? `${reporte.regiao_mg} • ` : ''
+        }${Number(reporte.latitude).toFixed(4)}, ${Number(reporte.longitude).toFixed(4)}`,
       };
     })
     .filter((item) => {
       const matchesData = !dataFiltro || item.createdAt.startsWith(dataFiltro);
       const matchesRegiao =
-        !regiaoFiltro || getRegiao(item.lat, item.lng) === regiaoFiltro;
+        !regiaoFiltro || normalizeRegionKey(item.regiaoMg) === regiaoFiltro;
       return matchesData && matchesRegiao;
     });
 
@@ -309,6 +322,7 @@ export default function Mapa() {
         <div style="text-align: center; padding: 10px 6px; min-width: 220px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
           <h3 style="font-weight: 700; font-size: 16px; margin: 0; line-height: 1.2;">Reporte ${marcador.id.slice(0, 8)}</h3>
           <p style="font-size: 12px; color: #666; margin: 0;">${marcador.localizacao}</p>
+          <p style="font-size: 12px; color: #666; margin: 0;">Região: <strong>${marcador.regiaoMg}</strong></p>
           <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; justify-content: center; align-items: center;">
             <span style="color: #34C759; font-weight: 600;">Prob: ${(marcador.probIncendio * 100).toFixed(1)}%</span>
             <span style="color: #999;">•</span>
@@ -400,10 +414,11 @@ export default function Mapa() {
                 className="w-full bg-[#0A1929] text-[#F2F2F7] px-4 py-3 rounded-lg border border-white/20 focus:outline-none focus:border-[#FF3B30] focus:shadow-[0_0_15px_rgba(255,59,48,0.3)] transition-all"
               >
                 <option value="">Todas as regiões</option>
-                <option value="norte">Norte</option>
-                <option value="sul">Sul</option>
-                <option value="leste">Leste</option>
-                <option value="oeste">Oeste</option>
+                {regiaoOptions.map((nome) => (
+                  <option key={nome} value={normalizeRegionKey(nome)}>
+                    {nome}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

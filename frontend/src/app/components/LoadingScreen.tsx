@@ -1,5 +1,5 @@
-import { motion } from 'motion/react';
-import { Flame } from 'lucide-react';
+import { motion } from "motion/react";
+import { Flame } from "lucide-react";
 
 export function LoadingScreen() {
   return (
@@ -10,39 +10,39 @@ export function LoadingScreen() {
         className="text-center"
       >
         <motion.div
-          animate={{ 
+          animate={{
             rotate: [0, 360],
-            scale: [1, 1.2, 1]
+            scale: [1, 1.2, 1],
           }}
-          transition={{ 
-            duration: 2, 
+          transition={{
+            duration: 2,
             repeat: Infinity,
-            ease: "easeInOut"
+            ease: "easeInOut",
           }}
           className="mb-6 flex justify-center"
         >
           <motion.div
-            animate={{ 
+            animate={{
               filter: [
-                'drop-shadow(0 0 10px rgba(255, 59, 48, 0.6))',
-                'drop-shadow(0 0 25px rgba(255, 59, 48, 1))',
-                'drop-shadow(0 0 10px rgba(255, 59, 48, 0.6))'
-              ]
+                "drop-shadow(0 0 10px rgba(255, 59, 48, 0.6))",
+                "drop-shadow(0 0 25px rgba(255, 59, 48, 1))",
+                "drop-shadow(0 0 10px rgba(255, 59, 48, 0.6))",
+              ],
             }}
             transition={{ duration: 1.5, repeat: Infinity }}
           >
             <Flame className="w-16 h-16 text-[#FF3B30]" />
           </motion.div>
         </motion.div>
-        
+
         <motion.h2
           animate={{ opacity: [0.5, 1, 0.5] }}
           transition={{ duration: 2, repeat: Infinity }}
           className="text-[#F2F2F7] text-xl font-bold"
         >
-          Alerta Fogo
+          Alerta Siriema
         </motion.h2>
-        
+
         <motion.div
           animate={{ opacity: [0, 1, 0] }}
           transition={{ duration: 1.5, repeat: Infinity }}

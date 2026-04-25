@@ -127,10 +127,6 @@ export default function Sucesso() {
                   </div>
                 )}
                 <div className="flex items-center gap-3 text-[#F2F2F7]">
-                  <Flame className="w-5 h-5 text-[#FF9500]" />
-                  <span className="text-sm">Predição: {successData.ml.classePrevista} ({(successData.ml.probIncendio * 100).toFixed(1)}%)</span>
-                </div>
-                <div className="flex items-center gap-3 text-[#F2F2F7]">
                   <Shield className="w-5 h-5 text-[#34C759]" />
                   <span className="text-sm">Modelo: {successData.ml.modelName} v{successData.ml.modelVersion} via {successData.ml.source}</span>
                 </div>

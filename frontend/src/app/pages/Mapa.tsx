@@ -7,6 +7,7 @@ import { apiConfig } from '../api/config';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+
 interface IncendioMarcador {
   id: string;
   lat: number;
@@ -24,6 +25,7 @@ interface IncendioMarcador {
   umidadePct: number;
   localizacao: string;
 }
+
 
 interface DadosMapaResponse {
   ultimosReportes: Array<{
@@ -45,7 +47,19 @@ interface DadosMapaResponse {
   updatedAt: string;
 }
 
+
 type MapStyleKey = 'streets' | 'satellite' | 'terrain' | 'dark';
+
+
+// ✅ CORREÇÃO 1: Coordenadas corrigidas cobrindo todo o estado de MG
+const minasGeraisBounds = L.latLngBounds(
+  L.latLng(-24.72, -51.58), // SW — extremo sul/oeste de MG
+  L.latLng(-12.42, -39.30)  // NE — extremo norte/leste de MG
+);
+
+// ✅ CORREÇÃO 2: Padding dinâmico de 5% nas bordas para evitar corte de tiles
+const minasGeraisBoundsExpanded = minasGeraisBounds.pad(0.05);
+
 
 // Função para criar ícones customizados animados
 const createCustomIcon = (risco: 'alto' | 'medio' | 'controlado') => {
@@ -105,6 +119,7 @@ const createCustomIcon = (risco: 'alto' | 'medio' | 'controlado') => {
   });
 };
 
+
 export default function Mapa() {
   const [dataFiltro, setDataFiltro] = useState('');
   const [regiaoFiltro, setRegiaoFiltro] = useState('');
@@ -113,9 +128,7 @@ export default function Mapa() {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const { data, error, refetch, refreshing } = useApi<DadosMapaResponse>('/api/dados', [], apiConfig.refreshIntervalMs);
-  
-  // Coordenadas centrais do Brasil (Brasília)
-  const centerPosition: [number, number] = [-15.7939, -47.8828];
+
 
   const getRegiao = (lat: number, lng: number) => {
     if (Math.abs(lat) <= 2 && Math.abs(lng) <= 2) {
@@ -136,6 +149,7 @@ export default function Mapa() {
 
     return 'oeste';
   };
+
 
   const marcadores: IncendioMarcador[] = (data?.ultimosReportes ?? [])
     .map((reporte) => {
@@ -168,6 +182,7 @@ export default function Mapa() {
       return matchesData && matchesRegiao;
     });
 
+
   const marcadorReferencia = marcadores[0];
 
   const dadosMeteo = {
@@ -175,6 +190,7 @@ export default function Mapa() {
     temperatura: marcadorReferencia ? Number(marcadorReferencia.temperaturaC.toFixed(1)) : 0,
     umidade: marcadorReferencia ? Number(marcadorReferencia.umidadePct.toFixed(1)) : 0,
   };
+
 
   // URLs dos diferentes estilos de mapa
   const mapStyles: Record<MapStyleKey, { url: string; attribution: string }> = {
@@ -196,29 +212,33 @@ export default function Mapa() {
     }
   };
 
+
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    
-    // Criar o mapa
-    const initialCenter: [number, number] = marcadores.length
-      ? [marcadores[0].lat, marcadores[0].lng]
-      : centerPosition;
 
-    const map = L.map(mapContainerRef.current).setView(initialCenter, marcadores.length ? 7 : 5);
+    // ✅ CORREÇÃO 3: Removido .setView() — o fitBounds abaixo posiciona o mapa
+    // ✅ CORREÇÃO 4: minZoom elevado de 6 → 7 para evitar zoom out além de MG
+    const map = L.map(mapContainerRef.current, {
+      maxBounds: minasGeraisBoundsExpanded, // usa o bounds com padding dinâmico
+      maxBoundsViscosity: 1.0,
+      minZoom: 7,
+      maxZoom: 12,
+    });
     mapRef.current = map;
-    
-    // Adicionar camada de tiles
+
+    // ✅ Tile layer adicionado ANTES do fitBounds
     L.tileLayer(mapStyles[mapStyle].url, {
       attribution: mapStyles[mapStyle].attribution,
-      maxZoom: 19
+      maxZoom: 12,
+      minZoom: 7,
     }).addTo(map);
-    
+
     // Adicionar marcadores
     marcadores.forEach((marcador) => {
       const marker = L.marker([marcador.lat, marcador.lng], {
         icon: createCustomIcon(marcador.risco)
       }).addTo(map);
-      
+
       // Popup customizado
       const popupContent = `
         <div style="text-align: center; padding: 10px 6px; min-width: 220px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
@@ -247,20 +267,19 @@ export default function Mapa() {
           </span>
         </div>
       `;
-      
+
       marker.bindPopup(popupContent);
     });
 
-    if (marcadores.length) {
-      const bounds = L.latLngBounds(marcadores.map((marcador) => [marcador.lat, marcador.lng] as [number, number]));
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 8 });
-    }
-    
+    // ✅ CORREÇÃO 5: fitBounds é o único posicionador inicial do mapa
+    map.fitBounds(minasGeraisBounds, { padding: [30, 30] });
+
     // Cleanup
     return () => {
       map.remove();
     };
   }, [mapStyle, dataFiltro, regiaoFiltro, data?.ultimosReportes]);
+
 
   return (
     <div className="min-h-screen bg-[#0A1929]">

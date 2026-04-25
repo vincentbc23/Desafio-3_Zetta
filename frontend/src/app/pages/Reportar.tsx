@@ -134,6 +134,7 @@ export default function Reportar() {
   const [locationConfirmed, setLocationConfirmed] = useState(false);
   const [description, setDescription] = useState('');
   const [features, setFeatures] = useState<IngestionFeatures | null>(null);
+  const [mlResumo, setMlResumo] = useState<IngestionResponse['ml'] | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -146,14 +147,6 @@ export default function Reportar() {
 
 
   const precisionThreshold = 25;
-
-
-  const riscoAlto =
-    !!features &&
-    (features.DiaSemChuva >= 10 ||
-      features.Temperatura_C >= 32 ||
-      features['Umidade_Relativa_%'] <= 35 ||
-      features.Vento_ms >= 8);
 
 
   useEffect(() => {
@@ -403,6 +396,7 @@ export default function Reportar() {
 
       const response = await api.post<IngestionResponse>('/api/reportar', payload);
       setFeatures(response.features);
+      setMlResumo(response.ml);
 
       setTimeout(() => {
         navigate('/sucesso', { state: response });
@@ -547,18 +541,36 @@ export default function Reportar() {
           >
             <AlertTriangle className="w-6 h-6 text-[#FF9500] flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-[#FF9500] font-semibold">
-                {features
-                  ? riscoAlto ? 'Risco elevado de propagação' : 'Risco moderado no momento'
-                  : 'Aguardando dados climáticos para classificar o risco'}
-              </p>
-              <p className="text-[#FF9500]/80 text-sm mt-1">
-                {features
-                  ? riscoAlto
-                    ? 'Condições atuais indicam maior chance de propagação. Priorize áreas seguras e reporte qualquer mudança.'
-                    : 'Condições atuais mais estáveis, mas siga monitorando e mantenha distância da área afetada.'
-                  : 'Após enviar o reporte, o sistema usa clima e localização para calcular o nível de atenção.'}
-              </p>
+              {(() => {
+                const frp = mlResumo?.frpPrevisto;
+                const riscoFrp =
+                  typeof frp === 'number'
+                    ? frp < 50
+                      ? 'baixo'
+                      : frp <= 500
+                        ? 'moderado'
+                        : 'alto'
+                    : null;
+
+                return (
+                  <>
+                    <p className="text-[#FF9500] font-semibold">
+                      {riscoFrp === 'alto' && 'Risco alto pelo modelo (FRP > 500)'}
+                      {riscoFrp === 'moderado' && 'Risco moderado pelo modelo (FRP entre 50 e 500)'}
+                      {riscoFrp === 'baixo' && 'Risco baixo pelo modelo (FRP < 50)'}
+                      {!riscoFrp && 'Aguardando predição do modelo para classificar o risco'}
+                    </p>
+                    <p className="text-[#FF9500]/80 text-sm mt-1">
+                      {typeof frp === 'number'
+                        ? `Intensidade prevista (FRP): ${frp.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}`
+                        : 'Após enviar o reporte, o sistema retornará a intensidade FRP para classificar o nível de risco.'}
+                    </p>
+                  </>
+                );
+              })()}
             </div>
           </motion.div>
 

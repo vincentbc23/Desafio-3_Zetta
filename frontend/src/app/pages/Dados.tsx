@@ -32,7 +32,7 @@ const corClasse = (classe: string) => {
     return '#FF3B30';
   }
 
-  if (normalized === 'medio') {
+  if (normalized === 'medio' || normalized === 'moderado') {
     return '#FF9500';
   }
 

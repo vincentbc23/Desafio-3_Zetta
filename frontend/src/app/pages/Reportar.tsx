@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router';
-import { MapPin, AlertTriangle, Navigation } from 'lucide-react';
+import { AlertTriangle, Navigation } from 'lucide-react';
 import { Header } from '../components/Header';
 import { BotaoPrincipal } from '../components/BotaoPrincipal';
 import { api } from '../api/client';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+
 
 interface IngestionFeatures {
   DiaSemChuva: number;
@@ -19,6 +20,7 @@ interface IngestionFeatures {
   Latitude: number;
   Longitude: number;
 }
+
 
 interface IngestionResponse {
   reportId: string;
@@ -42,6 +44,87 @@ interface IngestionResponse {
   };
 }
 
+
+const minasGeraisBounds = L.latLngBounds(
+  L.latLng(-24.72, -51.58),
+  L.latLng(-12.42, -39.30)
+);
+const minasGeraisBoundsExpanded = minasGeraisBounds.pad(0.05);
+
+
+function buildMaskFeature(mgGeoJson: GeoJSON.FeatureCollection | GeoJSON.Feature | GeoJSON.Geometry) {
+  const worldRing: [number, number][] = [
+    [-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90],
+  ];
+
+  let geom: GeoJSON.Geometry;
+  if ('features' in mgGeoJson && Array.isArray(mgGeoJson.features)) {
+    geom = (mgGeoJson.features[0] as GeoJSON.Feature).geometry;
+  } else if ('geometry' in mgGeoJson && mgGeoJson.geometry) {
+    geom = (mgGeoJson as GeoJSON.Feature).geometry;
+  } else {
+    geom = mgGeoJson as GeoJSON.Geometry;
+  }
+
+  let innerRings: GeoJSON.Position[][] = [];
+  if (geom.type === 'Polygon') {
+    innerRings = [geom.coordinates[0]];
+  } else if (geom.type === 'MultiPolygon') {
+    innerRings = geom.coordinates.map((poly) => poly[0]);
+  }
+
+  return {
+    type: 'Feature' as const,
+    geometry: {
+      type: 'Polygon' as const,
+      coordinates: [worldRing, ...innerRings],
+    },
+    properties: {},
+  };
+}
+
+
+// ✅ Ray casting: verifica se um ponto [lng, lat] está dentro de um anel GeoJSON
+function isPointInRing(px: number, py: number, ring: GeoJSON.Position[]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    const intersect = yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+
+// ✅ Checa se ponto está dentro do polígono (incluindo tratamento de buracos)
+function isPointInGeoJSONPolygon(px: number, py: number, rings: GeoJSON.Position[][]): boolean {
+  if (!isPointInRing(px, py, rings[0])) return false;
+  // Se estiver num buraco (anel interno), está fora do polígono
+  for (let r = 1; r < rings.length; r++) {
+    if (isPointInRing(px, py, rings[r])) return false;
+  }
+  return true;
+}
+
+
+// ✅ Ponto de entrada: recebe LatLng do Leaflet e geometria do GeoJSON
+function isPointInMG(latLng: L.LatLng, geometry: GeoJSON.Geometry): boolean {
+  const px = latLng.lng; // GeoJSON usa [lng, lat]
+  const py = latLng.lat;
+
+  if (geometry.type === 'Polygon') {
+    return isPointInGeoJSONPolygon(px, py, geometry.coordinates);
+  }
+
+  if (geometry.type === 'MultiPolygon') {
+    return geometry.coordinates.some((poly) => isPointInGeoJSONPolygon(px, py, poly));
+  }
+
+  return false;
+}
+
+
 export default function Reportar() {
   const navigate = useNavigate();
   const [localizacao, setLocalizacao] = useState('Localização ainda não capturada');
@@ -57,8 +140,13 @@ export default function Reportar() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
+  // ✅ Refs para validação de posição do marcador
+  const mgGeometryRef = useRef<GeoJSON.Geometry | null>(null);
+  const lastValidLatLngRef = useRef<L.LatLng | null>(null);
+
 
   const precisionThreshold = 25;
+
 
   const riscoAlto =
     !!features &&
@@ -67,37 +155,82 @@ export default function Reportar() {
       features['Umidade_Relativa_%'] <= 35 ||
       features.Vento_ms >= 8);
 
-  useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) {
-      return;
-    }
 
-    const initialCenter: [number, number] = [-15.7939, -47.8828];
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return;
+
+    const mgCenter: [number, number] = [-18.5, -44.5];
+
     const map = L.map(mapContainerRef.current, {
       zoomControl: true,
       attributionControl: true,
-    }).setView(initialCenter, 5);
+      maxBounds: minasGeraisBoundsExpanded,
+      maxBoundsViscosity: 1.0,
+      minZoom: 6,
+      maxZoom: 19,
+    }).setView(mgCenter, 7);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19,
+      minZoom: 6,
     }).addTo(map);
 
     mapRef.current = map;
+
+    fetch('https://servicodados.ibge.gov.br/api/v3/malhas/estados/31?formato=application/vnd.geo+json')
+      .then((res) => res.json())
+      .then((mgGeoJson) => {
+        if (!mapRef.current) return;
+
+        // ✅ Salva a geometria real de MG para validação do marcador
+        const feature = mgGeoJson.features?.[0] ?? mgGeoJson;
+        const geom: GeoJSON.Geometry = feature.geometry ?? feature;
+        mgGeometryRef.current = geom;
+
+        L.geoJSON(mgGeoJson, {
+          style: {
+            color: '#FF6B35',
+            weight: 2,
+            fill: false,
+            opacity: 0.9,
+          },
+        }).addTo(map);
+
+        const maskFeature = buildMaskFeature(mgGeoJson);
+        L.geoJSON(maskFeature, {
+          style: {
+            fillColor: '#0A1929',
+            fillOpacity: 0.88,
+            stroke: false,
+            weight: 0,
+          },
+        }).addTo(map);
+
+        const mgLayer = L.geoJSON(mgGeoJson);
+        map.fitBounds(mgLayer.getBounds(), { padding: [20, 20] });
+      })
+      .catch(() => {
+        map.fitBounds(minasGeraisBounds, { padding: [20, 20] });
+      });
 
     return () => {
       map.remove();
       mapRef.current = null;
       markerRef.current = null;
+      mgGeometryRef.current = null;
+      lastValidLatLngRef.current = null;
     };
   }, []);
 
-  useEffect(() => {
-    if (!coords || !mapRef.current) {
-      return;
-    }
 
-    const latLng: L.LatLngExpression = [coords.latitude, coords.longitude];
+  useEffect(() => {
+    if (!coords || !mapRef.current) return;
+
+    const latLng = L.latLng(coords.latitude, coords.longitude);
+
+    // ✅ Atualiza a última posição válida sempre que coords muda via GPS
+    lastValidLatLngRef.current = latLng;
 
     if (!markerRef.current) {
       markerRef.current = L.marker(latLng, {
@@ -120,16 +253,33 @@ export default function Reportar() {
 
       markerRef.current.on('dragend', () => {
         const marker = markerRef.current;
+        if (!marker) return;
 
-        if (!marker) {
+        const position = marker.getLatLng();
+        const geometry = mgGeometryRef.current;
+
+        // ✅ Valida se a posição está dentro de MG
+        const dentroDoEstado = geometry
+          ? isPointInMG(position, geometry)
+          : minasGeraisBounds.contains(position); // fallback para bbox se IBGE falhou
+
+        if (!dentroDoEstado) {
+          // ✅ Reverte para a última posição válida
+          const fallback = lastValidLatLngRef.current;
+          if (fallback) {
+            marker.setLatLng(fallback);
+          }
+          setErrorMessage('O marcador deve estar dentro de Minas Gerais.');
           return;
         }
 
-        const position = marker.getLatLng();
+        // Posição válida: atualiza estado e limpa erro
+        lastValidLatLngRef.current = position;
         setCoords({ latitude: position.lat, longitude: position.lng });
         setLocationSource('manual');
         setLocationConfirmed(true);
         setGpsAccuracy(null);
+        setErrorMessage('');
       });
     } else {
       markerRef.current.setLatLng(latLng);
@@ -138,10 +288,9 @@ export default function Reportar() {
     mapRef.current.flyTo(latLng, 13, { duration: 1.2 });
   }, [coords]);
 
+
   useEffect(() => {
-    if (!coords) {
-      return;
-    }
+    if (!coords) return;
 
     let cancelled = false;
 
@@ -149,11 +298,7 @@ export default function Reportar() {
       try {
         const response = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}&addressdetails=1`,
-          {
-            headers: {
-              'Accept-Language': 'pt-BR',
-            },
-          }
+          { headers: { 'Accept-Language': 'pt-BR' } }
         );
 
         const data = await response.json();
@@ -162,9 +307,7 @@ export default function Reportar() {
 
         if (address.road) {
           locationString += address.road;
-          if (address.house_number) {
-            locationString += `, ${address.house_number}`;
-          }
+          if (address.house_number) locationString += `, ${address.house_number}`;
         } else if (address.suburb || address.neighbourhood) {
           locationString += address.suburb || address.neighbourhood;
         }
@@ -173,17 +316,13 @@ export default function Reportar() {
           locationString += ` - ${address.city || address.town || address.village}`;
         }
 
-        if (address.state) {
-          locationString += `, ${address.state}`;
-        }
+        if (address.state) locationString += `, ${address.state}`;
 
         if (!locationString) {
           locationString = `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`;
         }
 
-        if (!cancelled) {
-          setLocalizacao(locationString);
-        }
+        if (!cancelled) setLocalizacao(locationString);
       } catch {
         if (!cancelled) {
           setLocalizacao(`${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`);
@@ -192,21 +331,18 @@ export default function Reportar() {
     };
 
     void updateLocationLabel();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [coords]);
+
 
   const handleGPS = () => {
     setGpsLoading(true);
     setErrorMessage('');
     setLocationConfirmed(false);
-    
-    // Obter localização real do dispositivo
+
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
-        async (position) => {
+        (position) => {
           const { latitude, longitude, accuracy } = position.coords;
           setCoords({ latitude, longitude });
           setGpsAccuracy(accuracy ?? null);
@@ -219,30 +355,17 @@ export default function Reportar() {
           setGpsLoading(false);
         },
         (error) => {
-          // Tratar erros de geolocalização
-          let errorMessage = 'Erro ao obter localização';
-          
+          let msg = 'Erro ao obter localização';
           switch (error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage = 'Permissão de localização negada';
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage = 'Localização indisponível';
-              break;
-            case error.TIMEOUT:
-              errorMessage = 'Tempo esgotado ao buscar localização';
-              break;
+            case error.PERMISSION_DENIED: msg = 'Permissão de localização negada'; break;
+            case error.POSITION_UNAVAILABLE: msg = 'Localização indisponível'; break;
+            case error.TIMEOUT: msg = 'Tempo esgotado ao buscar localização'; break;
           }
-          
-          setLocalizacao(errorMessage);
-          setErrorMessage(errorMessage);
+          setLocalizacao(msg);
+          setErrorMessage(msg);
           setGpsLoading(false);
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 20000,
-          maximumAge: 0
-        }
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
       );
     } else {
       setLocalizacao('Geolocalização não suportada pelo navegador');
@@ -250,6 +373,7 @@ export default function Reportar() {
       setGpsLoading(false);
     }
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -291,57 +415,58 @@ export default function Reportar() {
     }
   };
 
+
   return (
     <div className="min-h-screen bg-[#0A1929]">
       <Header />
-      
+
       <div className="max-w-4xl mx-auto px-8 py-12">
-        <motion.h1 
+        <motion.h1
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-4xl font-bold text-[#F2F2F7] mb-8"
         >
           Reportar Incêndio
         </motion.h1>
-        
-        {/* Mapa pequeno */}
+
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
-          className="w-full h-64 rounded-xl mb-8 overflow-hidden relative border border-white/10"
+          className="w-full h-[440px] rounded-xl mb-8 overflow-hidden relative border border-white/10"
         >
           <div ref={mapContainerRef} className="absolute inset-0" />
-          <div className="absolute top-3 left-3 space-y-2">
+          <div className="absolute top-3 left-3 space-y-2 z-[1000]">
             <div className="bg-[#0A1929]/80 text-[#F2F2F7] text-xs px-3 py-1 rounded-full border border-white/20 backdrop-blur-sm">
               {coords
                 ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
                 : 'Capture o GPS para centralizar'}
             </div>
             <div className="bg-[#0A1929]/80 text-[#F2F2F7] text-xs px-3 py-1 rounded-full border border-white/20 backdrop-blur-sm">
-              {gpsAccuracy != null ? `Precisão aproximada: ${Math.round(gpsAccuracy)}m` : 'Precisão ainda não disponível'}
+              {gpsAccuracy != null
+                ? `Precisão aproximada: ${Math.round(gpsAccuracy)}m`
+                : 'Precisão ainda não disponível'}
             </div>
             <div className="bg-[#0A1929]/80 text-[#F2F2F7] text-xs px-3 py-1 rounded-full border border-white/20 backdrop-blur-sm">
               {locationConfirmed ? 'Posição confirmada' : 'Arraste o marcador para confirmar'}
             </div>
           </div>
-          <div className="absolute bottom-3 left-3 right-3 bg-black/40 text-white text-xs rounded-lg px-3 py-2 backdrop-blur-sm">
-            Arraste o marcador vermelho até o foco exato do incêndio. Em caso de GPS impreciso, a confirmação manual é obrigatória.
+          <div className="absolute bottom-3 left-3 right-3 bg-black/40 text-white text-xs rounded-lg px-3 py-2 backdrop-blur-sm z-[1000]">
+            Arraste o marcador vermelho até o foco exato do incêndio dentro de Minas Gerais.
           </div>
         </motion.div>
-        
-        {/* Formulário */}
-        <motion.form 
+
+        <motion.form
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          onSubmit={handleSubmit} 
+          onSubmit={handleSubmit}
           className="bg-[#1C1C1E]/80 backdrop-blur-md border border-white/10 rounded-xl p-8 space-y-6"
         >
           <div>
             <label className="block text-[#F2F2F7] mb-2 font-semibold">Localização</label>
             <div className="flex gap-2">
-              <input 
+              <input
                 type="text"
                 value={localizacao}
                 readOnly
@@ -358,7 +483,7 @@ export default function Reportar() {
                 {gpsLoading ? (
                   <motion.div
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                   >
                     <Navigation className="w-5 h-5" />
                   </motion.div>
@@ -413,9 +538,8 @@ export default function Reportar() {
               {errorMessage}
             </div>
           )}
-          
-          {/* Aviso */}
-          <motion.div 
+
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
@@ -425,9 +549,7 @@ export default function Reportar() {
             <div>
               <p className="text-[#FF9500] font-semibold">
                 {features
-                  ? riscoAlto
-                    ? 'Risco elevado de propagação'
-                    : 'Risco moderado no momento'
+                  ? riscoAlto ? 'Risco elevado de propagação' : 'Risco moderado no momento'
                   : 'Aguardando dados climáticos para classificar o risco'}
               </p>
               <p className="text-[#FF9500]/80 text-sm mt-1">
@@ -439,7 +561,7 @@ export default function Reportar() {
               </p>
             </div>
           </motion.div>
-          
+
           <BotaoPrincipal fullWidth isLoading={isLoading}>
             ENVIAR PARA INGESTAO AUTOMATICA
           </BotaoPrincipal>

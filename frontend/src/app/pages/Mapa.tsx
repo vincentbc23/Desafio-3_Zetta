@@ -51,20 +51,48 @@ interface DadosMapaResponse {
 type MapStyleKey = 'streets' | 'satellite' | 'terrain' | 'dark';
 
 
-// ✅ CORREÇÃO 1: Coordenadas corrigidas cobrindo todo o estado de MG
+// Bounding box de MG para restrição de pan/zoom
 const minasGeraisBounds = L.latLngBounds(
-  L.latLng(-24.72, -51.58), // SW — extremo sul/oeste de MG
-  L.latLng(-12.42, -39.30)  // NE — extremo norte/leste de MG
+  L.latLng(-24.72, -51.58),
+  L.latLng(-12.42, -39.30)
 );
-
-// ✅ CORREÇÃO 2: Padding dinâmico de 5% nas bordas para evitar corte de tiles
 const minasGeraisBoundsExpanded = minasGeraisBounds.pad(0.05);
+
+
+// ✅ NOVO: Constrói polígono-máscara invertido (mundo com buraco no formato de MG)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildInvertedMask(geojson: any): GeoJSON.Feature {
+  // Anel externo cobrindo o mundo inteiro
+  const worldRing: GeoJSON.Position[] = [
+    [-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90],
+  ];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let geometry: any = geojson;
+  if (geojson.type === 'FeatureCollection') geometry = geojson.features[0].geometry;
+  else if (geojson.type === 'Feature') geometry = geojson.geometry;
+
+  // Extrai todos os anéis externos (suporta Polygon e MultiPolygon)
+  const innerRings: GeoJSON.Position[][] =
+    geometry.type === 'Polygon'
+      ? [geometry.coordinates[0]]
+      : (geometry.coordinates as GeoJSON.Position[][][]).map((poly) => poly[0]);
+
+  return {
+    type: 'Feature',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [worldRing, ...innerRings],
+    },
+    properties: {},
+  };
+}
 
 
 // Função para criar ícones customizados animados
 const createCustomIcon = (risco: 'alto' | 'medio' | 'controlado') => {
   const cor = risco === 'alto' ? '#FF3B30' : risco === 'medio' ? '#FF9500' : '#34C759';
-  
+
   return L.divIcon({
     className: 'custom-fire-marker',
     html: `
@@ -115,7 +143,7 @@ const createCustomIcon = (risco: 'alto' | 'medio' | 'controlado') => {
     `,
     iconSize: [40, 40],
     iconAnchor: [20, 40],
-    popupAnchor: [0, -40]
+    popupAnchor: [0, -40],
   });
 };
 
@@ -127,26 +155,18 @@ export default function Mapa() {
   const [isStyleOpen, setIsStyleOpen] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const { data, error, refetch, refreshing } = useApi<DadosMapaResponse>('/api/dados', [], apiConfig.refreshIntervalMs);
+  const { data, error, refetch, refreshing } = useApi<DadosMapaResponse>(
+    '/api/dados',
+    [],
+    apiConfig.refreshIntervalMs
+  );
 
 
   const getRegiao = (lat: number, lng: number) => {
-    if (Math.abs(lat) <= 2 && Math.abs(lng) <= 2) {
-      return 'centro';
-    }
-
-    if (lat >= 0 && lng >= 0) {
-      return 'norte';
-    }
-
-    if (lat < 0 && lng >= 0) {
-      return 'leste';
-    }
-
-    if (lat < 0 && lng < 0) {
-      return 'sul';
-    }
-
+    if (Math.abs(lat) <= 2 && Math.abs(lng) <= 2) return 'centro';
+    if (lat >= 0 && lng >= 0) return 'norte';
+    if (lat < 0 && lng >= 0) return 'leste';
+    if (lat < 0 && lng < 0) return 'sul';
     return 'oeste';
   };
 
@@ -156,14 +176,19 @@ export default function Mapa() {
       const prob = Number(reporte.prob_incendio ?? 0);
       const classe = (reporte.classe_prevista || '').toLowerCase();
       const risco: IncendioMarcador['risco'] =
-        classe === 'alto' || prob >= 0.7 ? 'alto' : classe === 'medio' || prob >= 0.4 ? 'medio' : 'controlado';
+        classe === 'alto' || prob >= 0.7
+          ? 'alto'
+          : classe === 'medio' || prob >= 0.4
+          ? 'medio'
+          : 'controlado';
 
       return {
         id: reporte.id,
         lat: Number(reporte.latitude),
         lng: Number(reporte.longitude),
         description: reporte.description || null,
-        accuracyMeters: reporte.accuracy_meters == null ? null : Number(reporte.accuracy_meters),
+        accuracyMeters:
+          reporte.accuracy_meters == null ? null : Number(reporte.accuracy_meters),
         locationSource: reporte.location_source || 'gps',
         locationConfirmed: Boolean(reporte.location_confirmed),
         risco,
@@ -178,7 +203,8 @@ export default function Mapa() {
     })
     .filter((item) => {
       const matchesData = !dataFiltro || item.createdAt.startsWith(dataFiltro);
-      const matchesRegiao = !regiaoFiltro || getRegiao(item.lat, item.lng) === regiaoFiltro;
+      const matchesRegiao =
+        !regiaoFiltro || getRegiao(item.lat, item.lng) === regiaoFiltro;
       return matchesData && matchesRegiao;
     });
 
@@ -192,54 +218,98 @@ export default function Mapa() {
   };
 
 
-  // URLs dos diferentes estilos de mapa
   const mapStyles: Record<MapStyleKey, { url: string; attribution: string }> = {
     streets: {
       url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     },
     satellite: {
       url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      attribution: '&copy; Esri'
+      attribution: '&copy; Esri',
     },
     terrain: {
       url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-      attribution: '&copy; OpenTopoMap'
+      attribution: '&copy; OpenTopoMap',
     },
     dark: {
       url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-      attribution: '&copy; CartoDB'
-    }
+      attribution: '&copy; CartoDB',
+    },
   };
 
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // ✅ CORREÇÃO 3: Removido .setView() — o fitBounds abaixo posiciona o mapa
-    // ✅ CORREÇÃO 4: minZoom elevado de 6 → 7 para evitar zoom out além de MG
     const map = L.map(mapContainerRef.current, {
-      maxBounds: minasGeraisBoundsExpanded, // usa o bounds com padding dinâmico
+      maxBounds: minasGeraisBoundsExpanded,
       maxBoundsViscosity: 1.0,
       minZoom: 7,
       maxZoom: 12,
     });
     mapRef.current = map;
 
-    // ✅ Tile layer adicionado ANTES do fitBounds
+    // Tile layer
     L.tileLayer(mapStyles[mapStyle].url, {
       attribution: mapStyles[mapStyle].attribution,
       maxZoom: 12,
       minZoom: 7,
     }).addTo(map);
 
-    // Adicionar marcadores
+    // ✅ NOVO: Busca GeoJSON real de MG no IBGE → aplica borda + máscara
+    fetch(
+      'https://servicodados.ibge.gov.br/api/v3/malhas/estados/31?formato=application/vnd.geo+json'
+    )
+      .then((res) => res.json())
+      .then((mgGeoJson) => {
+        if (!mapRef.current) return;
+
+        // 1. Borda laranja com glow — delimita o estado
+        L.geoJSON(mgGeoJson, {
+          style: {
+            color: '#FF6B35',
+            weight: 2.5,
+            opacity: 1,
+            fill: false,
+          },
+        }).addTo(map);
+
+        // 2. Segunda borda mais suave para efeito de glow
+        L.geoJSON(mgGeoJson, {
+          style: {
+            color: '#FF9500',
+            weight: 6,
+            opacity: 0.18,
+            fill: false,
+          },
+        }).addTo(map);
+
+        // 3. Máscara: escurece tudo FORA de MG (cor de fundo da página)
+        L.geoJSON(buildInvertedMask(mgGeoJson), {
+          style: {
+            fillColor: '#0A1929',
+            fillOpacity: 0.82,
+            color: 'transparent',
+            weight: 0,
+          },
+          interactive: false,
+        }).addTo(map);
+
+        // 4. Posiciona o mapa usando bounds reais do GeoJSON
+        const mgLayer = L.geoJSON(mgGeoJson);
+        map.fitBounds(mgLayer.getBounds(), { padding: [24, 24] });
+      })
+      .catch(() => {
+        // Fallback: usa bounding box aproximado se IBGE estiver indisponível
+        map.fitBounds(minasGeraisBounds, { padding: [30, 30] });
+      });
+
+    // Adicionar marcadores (após tile layer, antes do fitBounds assíncrono — ok)
     marcadores.forEach((marcador) => {
       const marker = L.marker([marcador.lat, marcador.lng], {
-        icon: createCustomIcon(marcador.risco)
+        icon: createCustomIcon(marcador.risco),
       }).addTo(map);
 
-      // Popup customizado
       const popupContent = `
         <div style="text-align: center; padding: 10px 6px; min-width: 220px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
           <h3 style="font-weight: 700; font-size: 16px; margin: 0; line-height: 1.2;">Reporte ${marcador.id.slice(0, 8)}</h3>
@@ -257,13 +327,19 @@ export default function Mapa() {
             ${marcador.description ? `<span style="max-width: 220px; text-wrap: pretty;">Descrição: ${marcador.description}</span>` : ''}
           </div>
           <span style="display: inline-block; padding: 4px 12px; border-radius: 16px; font-size: 11px; font-weight: 600; margin-top: 2px; ${
-            marcador.risco === 'alto' ? 'background: #ffebee; color: #c62828;' :
-            marcador.risco === 'medio' ? 'background: #fff3e0; color: #ef6c00;' :
-            'background: #e8f5e9; color: #2e7d32;'
+            marcador.risco === 'alto'
+              ? 'background: #ffebee; color: #c62828;'
+              : marcador.risco === 'medio'
+              ? 'background: #fff3e0; color: #ef6c00;'
+              : 'background: #e8f5e9; color: #2e7d32;'
           }">
-            ${marcador.risco === 'alto' ? '🔥 Alto Risco' :
-              marcador.risco === 'medio' ? '⚠️ Médio Risco' :
-              '✅ Controlado'}
+            ${
+              marcador.risco === 'alto'
+                ? '🔥 Alto Risco'
+                : marcador.risco === 'medio'
+                ? '⚠️ Médio Risco'
+                : '✅ Controlado'
+            }
           </span>
         </div>
       `;
@@ -271,10 +347,6 @@ export default function Mapa() {
       marker.bindPopup(popupContent);
     });
 
-    // ✅ CORREÇÃO 5: fitBounds é o único posicionador inicial do mapa
-    map.fitBounds(minasGeraisBounds, { padding: [30, 30] });
-
-    // Cleanup
     return () => {
       map.remove();
     };
@@ -284,7 +356,7 @@ export default function Mapa() {
   return (
     <div className="min-h-screen bg-[#0A1929]">
       <Header />
-      
+
       <div className="max-w-7xl mx-auto px-8 py-8">
         <div className="flex items-center justify-end gap-3 mb-4">
           {data?.updatedAt && (
@@ -303,7 +375,7 @@ export default function Mapa() {
         </div>
 
         {/* Filtros */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-[#1C1C1E]/80 backdrop-blur-md border border-white/10 rounded-xl p-6 mb-8"
@@ -314,20 +386,20 @@ export default function Mapa() {
                 <Calendar className="w-5 h-5" />
                 Data
               </label>
-              <input 
+              <input
                 type="date"
                 value={dataFiltro}
                 onChange={(e) => setDataFiltro(e.target.value)}
                 className="w-full bg-[#0A1929] text-[#F2F2F7] px-4 py-3 rounded-lg border border-white/20 focus:outline-none focus:border-[#FF3B30] focus:shadow-[0_0_15px_rgba(255,59,48,0.3)] transition-all"
               />
             </div>
-            
+
             <div className="flex-1">
               <label className="block text-[#F2F2F7] mb-2 font-semibold flex items-center gap-2">
                 <MapPin className="w-5 h-5" />
                 Região
               </label>
-              <select 
+              <select
                 value={regiaoFiltro}
                 onChange={(e) => setRegiaoFiltro(e.target.value)}
                 className="w-full bg-[#0A1929] text-[#F2F2F7] px-4 py-3 rounded-lg border border-white/20 focus:outline-none focus:border-[#FF3B30] focus:shadow-[0_0_15px_rgba(255,59,48,0.3)] transition-all"
@@ -347,17 +419,17 @@ export default function Mapa() {
             Não foi possível carregar os dados reais do mapa. Verifique a conexão com a API.
           </div>
         )}
-        
+
         {/* Mapa Interativo */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
           className="bg-[#1C1C1E]/80 backdrop-blur-md border border-white/10 rounded-xl p-6"
         >
           <div className="relative w-full h-[600px] rounded-lg overflow-hidden">
-            <div 
-              ref={mapContainerRef} 
+            <div
+              ref={mapContainerRef}
               style={{ height: '100%', width: '100%', borderRadius: '0.5rem' }}
             />
 
@@ -372,7 +444,7 @@ export default function Mapa() {
                 <Layers className="w-5 h-5" />
                 <span className="text-sm font-semibold">Estilo</span>
               </motion.button>
-              
+
               <AnimatePresence>
                 {isStyleOpen && (
                   <motion.div
@@ -409,7 +481,7 @@ export default function Mapa() {
                 )}
               </AnimatePresence>
             </div>
-            
+
             {/* Painel de Informações Meteorológicas */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
@@ -418,7 +490,7 @@ export default function Mapa() {
               className="absolute top-4 right-4 bg-[#1C1C1E]/90 backdrop-blur-md border border-white/20 rounded-xl p-4 shadow-2xl min-w-[200px] z-[1000]"
             >
               <h3 className="text-[#F2F2F7] font-bold text-sm mb-3">Condições Climáticas</h3>
-              
+
               {/* Vento */}
               <div className="flex items-center gap-3 mb-3">
                 <motion.div
@@ -432,7 +504,7 @@ export default function Mapa() {
                   <p className="text-[#F2F2F7] font-bold text-lg">{dadosMeteo.vento} km/h</p>
                 </div>
               </div>
-              
+
               {/* Temperatura */}
               <div className="flex items-center gap-3 mb-3">
                 <Thermometer className="w-6 h-6 text-[#FF3B30]" />
@@ -441,7 +513,7 @@ export default function Mapa() {
                   <p className="text-[#F2F2F7] font-bold text-lg">{dadosMeteo.temperatura}°C</p>
                 </div>
               </div>
-              
+
               {/* Umidade */}
               <div className="flex items-center gap-3">
                 <Droplets className="w-6 h-6 text-[#34C759]" />
@@ -450,7 +522,7 @@ export default function Mapa() {
                   <p className="text-[#F2F2F7] font-bold text-lg">{dadosMeteo.umidade}%</p>
                 </div>
               </div>
-              
+
               {/* Alerta de risco */}
               {dadosMeteo.umidade < 30 && (
                 <motion.div
@@ -465,9 +537,9 @@ export default function Mapa() {
               )}
             </motion.div>
           </div>
-          
+
           {/* Legenda */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
@@ -486,7 +558,7 @@ export default function Mapa() {
               <span className="text-[#F2F2F7] font-semibold">Controlado</span>
             </div>
           </motion.div>
-          
+
           {/* Dica de uso */}
           <motion.p
             initial={{ opacity: 0 }}

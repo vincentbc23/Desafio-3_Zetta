@@ -1,51 +1,51 @@
-import { motion } from 'motion/react';
-import { 
-  BookOpen, 
-  ShieldAlert, 
-  AlertTriangle, 
-  Phone, 
-  Video, 
-  Users, 
+import { motion } from "motion/react";
+import {
+  BookOpen,
+  ShieldAlert,
+  AlertTriangle,
+  Phone,
+  Video,
+  Users,
   Heart,
   Shield,
-  Leaf
-} from 'lucide-react';
-import { Header } from '../components/Header';
-import defesaCivilLogo from 'figma:asset/ebe836f5a99a1e98a0f9906e2f1f48ae5d728321.png';
-import meioAmbienteImg from 'figma:asset/feb218a1b7fd3fb3ec618bc265cec8829a328e2c.png';
+  Leaf,
+} from "lucide-react";
+import { Header } from "../components/Header";
+import defesaCivilLogo from "figma:asset/ebe836f5a99a1e98a0f9906e2f1f48ae5d728321.png";
+import meioAmbienteImg from "figma:asset/feb218a1b7fd3fb3ec618bc265cec8829a328e2c.png";
 
 export default function Educacao() {
   const dicasPreventivas = [
     {
       emoji: "🚫",
       titulo: "Não queime lixo",
-      descricao: "Nunca queime lixo ou resíduos. Use a coleta adequada."
+      descricao: "Nunca queime lixo ou resíduos. Use a coleta adequada.",
     },
     {
       emoji: "💧",
       titulo: "Apague bem fogueiras",
-      descricao: "Sempre apague completamente com água antes de sair."
+      descricao: "Sempre apague completamente com água antes de sair.",
     },
     {
       emoji: "🚬",
       titulo: "Cuidado com cigarros",
-      descricao: "Nunca jogue pontas de cigarro em áreas verdes."
+      descricao: "Nunca jogue pontas de cigarro em áreas verdes.",
     },
     {
       emoji: "🌳",
       titulo: "Limpe seu terreno",
-      descricao: "Mantenha a vegetação seca longe de construções."
+      descricao: "Mantenha a vegetação seca longe de construções.",
     },
     {
       emoji: "⚠️",
       titulo: "Evite soltar balões",
-      descricao: "Soltar balões é crime e pode causar incêndios."
+      descricao: "Soltar balões é crime e pode causar incêndios.",
     },
     {
       emoji: "🔥",
       titulo: "Cuidado com churrasqueiras",
-      descricao: "Use em locais seguros e longe de vegetação."
-    }
+      descricao: "Use em locais seguros e longe de vegetação.",
+    },
   ];
 
   const passosSeFogo = [
@@ -53,28 +53,28 @@ export default function Educacao() {
     { numero: "2", texto: "Afaste-se do fogo e pessoas próximas" },
     { numero: "3", texto: "Não tente apagar sozinho se for grande" },
     { numero: "4", texto: "Informe a localização exata" },
-    { numero: "5", texto: "Use o site Alerta Fogo para reportar" }
+    { numero: "5", texto: "Use o site Alerta Siriema para reportar" },
   ];
 
   const videosEducativos = [
-    { 
-      titulo: "Prevenção de Incêndios Florestais", 
+    {
+      titulo: "Prevenção de Incêndios Florestais",
       duracao: "YouTube",
       nivel: "Todos",
-      url: "https://youtu.be/XyZ_aBS0Jyc?si=R6_bTw_vPHuhuxla"
+      url: "https://youtu.be/XyZ_aBS0Jyc?si=R6_bTw_vPHuhuxla",
     },
-    { 
-      titulo: "Como Agir em Situações de Fogo", 
+    {
+      titulo: "Como Agir em Situações de Fogo",
       duracao: "YouTube",
       nivel: "Todos",
-      url: "https://youtu.be/Duc554Oq4UM?si=6H2qzFRngbrhsxQa"
+      url: "https://youtu.be/Duc554Oq4UM?si=6H2qzFRngbrhsxQa",
     },
-    { 
-      titulo: "Educação e Segurança Contra Incêndios", 
+    {
+      titulo: "Educação e Segurança Contra Incêndios",
       duracao: "YouTube",
       nivel: "Todos",
-      url: "https://www.youtube.com/watch?v=SEouArniFQg"
-    }
+      url: "https://www.youtube.com/watch?v=SEouArniFQg",
+    },
   ];
 
   const parceiros = [
@@ -83,31 +83,32 @@ export default function Educacao() {
       telefone: "193",
       icon: ShieldAlert,
       cor: "#FF3B30",
-      imagem: "https://images.unsplash.com/photo-1674831147403-3b3694e000b9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmaXJlZmlnaHRlciUyMGhlcm8lMjBwb3J0cmFpdHxlbnwxfHx8fDE3NzUyNTI2ODl8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+      imagem:
+        "https://images.unsplash.com/photo-1674831147403-3b3694e000b9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmaXJlZmlnaHRlciUyMGhlcm8lMjBwb3J0cmFpdHxlbnwxfHx8fDE3NzUyNTI2ODl8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
     },
     {
       nome: "Defesa Civil",
       telefone: "199",
       icon: Shield,
       cor: "#FF9500",
-      imagem: defesaCivilLogo
+      imagem: defesaCivilLogo,
     },
     {
       nome: "Órgãos Ambientais",
       telefone: "(35) 3694-4054",
       icon: Leaf,
       cor: "#34C759",
-      imagem: meioAmbienteImg
-    }
+      imagem: meioAmbienteImg,
+    },
   ];
 
   return (
     <div className="min-h-screen bg-[#0A1929]">
       <Header />
-      
+
       <div className="max-w-7xl mx-auto px-8 py-12">
         {/* Hero Section */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-16"
@@ -172,8 +173,8 @@ export default function Educacao() {
             className="bg-gradient-to-r from-[#FF3B30]/20 to-[#FF9500]/20 border border-[#FF3B30]/30 rounded-3xl p-8"
           >
             <h2 className="text-3xl font-bold text-[#F2F2F7] mb-8 flex items-center gap-3">
-              <AlertTriangle className="w-8 h-8 text-[#FF9500]" />
-              O Que Fazer ao Ver Fogo
+              <AlertTriangle className="w-8 h-8 text-[#FF9500]" />O Que Fazer ao
+              Ver Fogo
             </h2>
             <div className="space-y-4">
               {passosSeFogo.map((passo, index) => (
@@ -187,13 +188,13 @@ export default function Educacao() {
                   <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-r from-[#FF3B30] to-[#FF9500] rounded-full flex items-center justify-center text-white font-bold text-xl">
                     {passo.numero}
                   </div>
-                  <p className="text-[#F2F2F7] text-xl font-medium"> 
+                  <p className="text-[#F2F2F7] text-xl font-medium">
                     {passo.texto}
-                  </p> 
+                  </p>
                 </motion.div>
               ))}
             </div>
-            
+
             {/* Botão de Emergência */}
             <motion.a
               href="tel:193"
@@ -272,7 +273,7 @@ export default function Educacao() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
               <div>
-                <img 
+                <img
                   src="https://images.unsplash.com/photo-1504850012971-3dc85a46dc4a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmaXJlZmlnaHRlciUyMHRlYWNoaW5nJTIwY2hpbGRyZW4lMjBmaXJlJTIwc2FmZXR5fGVufDF8fHx8MTc3NTI1MjY4OHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
                   alt="Educação para crianças"
                   className="rounded-2xl w-full h-auto object-cover"
@@ -284,7 +285,8 @@ export default function Educacao() {
                     🎨 Aprenda brincando!
                   </p>
                   <p className="text-[#F2F2F7]/80 text-lg leading-relaxed">
-                    Jogos, desenhos e atividades divertidas para ensinar segurança de forma lúdica.
+                    Jogos, desenhos e atividades divertidas para ensinar
+                    segurança de forma lúdica.
                   </p>
                 </div>
                 <div className="bg-[#1C1C1E]/60 backdrop-blur-sm rounded-xl p-6">
@@ -292,7 +294,8 @@ export default function Educacao() {
                     📚 Cartilhas ilustradas
                   </p>
                   <p className="text-[#F2F2F7]/80 text-lg leading-relaxed">
-                    Material educativo com linguagem simples e ilustrações coloridas.
+                    Material educativo com linguagem simples e ilustrações
+                    coloridas.
                   </p>
                 </div>
                 <div className="bg-[#1C1C1E]/60 backdrop-blur-sm rounded-xl p-6">
@@ -300,7 +303,8 @@ export default function Educacao() {
                     👨‍🚒 Heróis do dia a dia
                   </p>
                   <p className="text-[#F2F2F7]/80 text-lg leading-relaxed">
-                    Conheça o trabalho dos bombeiros e como eles protegem nossa comunidade.
+                    Conheça o trabalho dos bombeiros e como eles protegem nossa
+                    comunidade.
                   </p>
                 </div>
               </div>
@@ -330,7 +334,7 @@ export default function Educacao() {
                   className="bg-[#1C1C1E]/80 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden hover:border-white/30 transition-all"
                 >
                   <div className="h-48 overflow-hidden">
-                    <img 
+                    <img
                       src={parceiro.imagem}
                       alt={parceiro.nome}
                       className="w-full h-full object-cover"
@@ -338,12 +342,12 @@ export default function Educacao() {
                   </div>
                   <div className="p-6">
                     <div className="flex items-center gap-3 mb-3">
-                      <div 
+                      <div
                         className="p-2 rounded-lg"
                         style={{ backgroundColor: `${parceiro.cor}20` }}
                       >
-                        <parceiro.icon 
-                          className="w-6 h-6" 
+                        <parceiro.icon
+                          className="w-6 h-6"
                           style={{ color: parceiro.cor }}
                         />
                       </div>
@@ -351,12 +355,12 @@ export default function Educacao() {
                         {parceiro.nome}
                       </h3>
                     </div>
-                    <a 
-                      href={`tel:${parceiro.telefone.replace(/\D/g, '')}`}
+                    <a
+                      href={`tel:${parceiro.telefone.replace(/\D/g, "")}`}
                       className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-bold text-white transition-all"
-                      style={{ 
+                      style={{
                         background: `linear-gradient(135deg, ${parceiro.cor}, ${parceiro.cor}dd)`,
-                        boxShadow: `0 4px 15px ${parceiro.cor}40`
+                        boxShadow: `0 4px 15px ${parceiro.cor}40`,
                       }}
                     >
                       <Phone className="w-5 h-5" />
@@ -368,7 +372,6 @@ export default function Educacao() {
             </div>
           </motion.div>
         </section>
-
       </div>
     </div>
   );

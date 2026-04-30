@@ -42,7 +42,7 @@ O projeto está dividido em notebooks que seguem o fluxo lógico:
 Os dados utilizados neste projeto estão disponíveis nos links abaixo. A base final consolidada é o arquivo `bdqueimadas_final.csv`.
 
 * [**Bases de Dados Originais (Drive)**](https://drive.google.com/file/d/1RTIoVEAFcfYmQG6E2xWhSWW4OCr2qIPw/view?usp=sharing) - Contém os arquivos brutos ano a ano que alimentaram o processo.
-* [**Dataset Tratado e Final (Drive)**](https://drive.google.com/file/d/1O60kdBVA6pilZks8iJ3SUuKN9i1qcToL/view?usp=sharing) - Base pronta para uso nos modelos e gráficos.
+* [**Dataset Tratado e Final (Drive)**]([https://drive.google.com/file/d/1O60kdBVA6pilZks8iJ3SUuKN9i1qcToL/view?usp=sharing](https://drive.google.com/file/d/1O60kdBVA6pilZks8iJ3SUuKN9i1qcToL/view?usp=sharing)) - Base pronta para uso nos modelos e gráficos.
 
 ---
 
